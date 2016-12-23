@@ -3,7 +3,12 @@
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
+  "bin": {
+    "wcm-cli": "./dist/index.js"
+  },
   "scripts": {
+    "build": "tsc && npm i . -g",
+    "lint": "tslint --project .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
@@ -11,5 +16,13 @@
     "npm": ">=3.10.8"
   },
   "author": "Century Tech",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.3.31",
+    "tslint": "^4.2.0",
+    "typescript": "^2.1.4"
+  }
 }
