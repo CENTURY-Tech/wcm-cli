@@ -7,6 +7,11 @@ import * as fs from "fs";
 import * as program from "commander";
 import { exec as shrinkwrapExec } from "./shrinkwrap";
 
+/**
+ * Shims
+ */
+import "./shims";
+
 const pkg: Object = fs.readFileSync("package.json");
 
 program

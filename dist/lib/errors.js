@@ -1,4 +1,16 @@
 "use strict";
+class FileNotFoundError extends Error {
+    constructor(filePath) {
+        super(`No file found at path: ${filePath}`);
+    }
+    /**
+     * Exit with this error
+     */
+    exit() {
+        return exitWithError(this);
+    }
+}
+exports.FileNotFoundError = FileNotFoundError;
 /**
  * Create a FileNotFound error against the supplied path
  */
@@ -12,19 +24,7 @@ exports.fileNotFound = fileNotFound;
  */
 function exitWithError(err) {
     "use strict";
-    console.error(err.message);
+    void console.error(err.message);
     return process.exit(1);
 }
 exports.exitWithError = exitWithError;
-class FileNotFoundError extends Error {
-    constructor(filePath) {
-        super(`No file found at path: ${filePath}`);
-    }
-    /**
-     * Exit with this error
-     */
-    exit() {
-        return exitWithError(this);
-    }
-}
-exports.FileNotFoundError = FileNotFoundError;
