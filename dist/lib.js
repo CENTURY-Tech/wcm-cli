@@ -21,6 +21,11 @@ function readBowerJson(projectPath) {
     return readFileAsJson(path.resolve(projectPath, "bower.json"));
 }
 exports.readBowerJson = readBowerJson;
+function readBowerModuleJson(modulePath) {
+    "use strict";
+    return readFileAsJson(path.resolve(modulePath, ".bower.json"));
+}
+exports.readBowerModuleJson = readBowerModuleJson;
 /**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found
  */
@@ -31,6 +36,7 @@ function readFileAsJson(fullPath) {
     }
     return JSON.parse(fs.readFileSync(fullPath, "utf8"));
 }
+exports.readFileAsJson = readFileAsJson;
 var BowerModuleType;
 (function (BowerModuleType) {
     BowerModuleType[BowerModuleType["globals"] = 0] = "globals";
