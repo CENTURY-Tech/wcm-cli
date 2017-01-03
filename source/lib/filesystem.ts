@@ -24,8 +24,6 @@ export function readFileAsJson<T extends Object>(fullPath: string): T {
 export async function removeDirectory(directoryPath: string): Promise<void> {
   "use strict";
 
-  console.info("Removing directory at path: %s", directoryPath);
-
   await new Promise((resolve): void => {
     fs.remove(directoryPath, (err: Error): void => {
       if (err) {

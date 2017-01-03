@@ -57,18 +57,28 @@ export class DependencyGraph implements IDependencyGraphVerbose {
     [dependencyName: string]: IDependencyShorthand
   } = {};
 
+  /**
+   * Add a dependency to the dependency graph.
+   */
   public addDependency(dependency: IDependencyShorthand): void {
     "use strict";
 
     this.dependencies[dependency.name] = dependency;
   }
 
+  /**
+   * Check to see whether or not a dependency with the supplied name is currently held within the instance of the
+   * dependency graph.
+   */
   public hasDependency(dependencyName: string): boolean {
     "use strict";
 
     return this.dependencies[dependencyName] !== undefined;
   }
 
+  /**
+   *
+   */
   public async copyModules(outDestination: string): Promise<void> {
     "use strict";
 

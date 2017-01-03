@@ -26,10 +26,10 @@ exports.readFileAsJson = readFileAsJson;
 /**
  * Remove the directory at the path specified.
  */
+@logProgress("Removing directory at path: %s", 0)
 function removeDirectory(directoryPath) {
     "use strict";
     return __awaiter(this, void 0, void 0, function* () {
-        console.info("Removing directory at path: %s", directoryPath);
         yield new Promise((resolve) => {
             fs.remove(directoryPath, (err) => {
                 if (err) {
@@ -59,3 +59,18 @@ function copyModule(dependencyPath, destinationPath) {
     });
 }
 exports.copyModule = copyModule;
+function logProgress(message, ...argIndexes) {
+    console.log('here')
+    return function (target) {
+        console.log(message, Array.from(arguments).filter((value, i) => {
+            return argIndexes.includes(i);
+        }));
+        const call = target.apply(this, arguments);
+        call.finally(() => {
+            console.log(message + " [done]", Array.from(arguments).filter((value, i) => {
+                return argIndexes.includes(i);
+            }));
+        });
+        return call;
+    };
+}
