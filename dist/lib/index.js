@@ -1,16 +1,23 @@
 "use strict";
-/**
- * Dependencies
- */
-const fs = require("fs");
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments)).next());
+    });
+};
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
 const path = require("path");
-const errors = require("./errors");
+const filesystem_1 = require("./filesystem");
 class DependencyShorthand {
     constructor(args) {
         Object.assign(this, args);
     }
     /**
-     * Generate a dependency pointer for this dependency
+     * Generate a dependency pointer for this dependency.
      */
     generateDependencyPointer() {
         "use strict";
@@ -18,7 +25,7 @@ class DependencyShorthand {
     }
 }
 exports.DependencyShorthand = DependencyShorthand;
-class DependencyGraphVerbose {
+class DependencyGraph {
     constructor() {
         this.dependencies = {};
     }
@@ -30,8 +37,18 @@ class DependencyGraphVerbose {
         "use strict";
         return this.dependencies[dependencyName] !== undefined;
     }
+    copyModules(outDestination) {
+        "use strict";
+        return __awaiter(this, void 0, void 0, function* () {
+            yield filesystem_1.removeDirectory(outDestination);
+            const dependencyPaths = [];
+            for (let dependency of Object.values(this.dependencies)) {
+                yield filesystem_1.copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
+            }
+        });
+    }
     /**
-     * Convert this verbose dependency graph into a human readable dependency graph
+     * Convert this verbose dependency graph into a human readable dependency graph.
      */
     toReadable() {
         "use strict";
@@ -45,44 +62,33 @@ class DependencyGraphVerbose {
         return dependencyGraphReadable;
     }
 }
-exports.DependencyGraphVerbose = DependencyGraphVerbose;
+exports.DependencyGraph = DependencyGraph;
 /**
- * Read and parse the package JSON file at the supplied path
+ * Read and parse the package JSON file at the supplied path.
  */
 function readPackageJson(projectPath) {
     "use strict";
-    return readFileAsJson(path.resolve(projectPath, "package.json"));
+    return filesystem_1.readFileAsJson(path.resolve(projectPath, "package.json"));
 }
 exports.readPackageJson = readPackageJson;
 /**
- * Read and parse the bower JSON file at the supplied path
+ * Read and parse the bower JSON file at the supplied path.
  */
 function readBowerJson(projectPath) {
     "use strict";
-    return readFileAsJson(path.resolve(projectPath, "bower.json"));
+    return filesystem_1.readFileAsJson(path.resolve(projectPath, "bower.json"));
 }
 exports.readBowerJson = readBowerJson;
 /**
- * Read and parse the release/module bower JSON file at the supplied path
+ * Read and parse the release/module bower JSON file at the supplied path.
  */
 function readBowerModuleJson(modulePath) {
     "use strict";
-    return readFileAsJson(path.resolve(modulePath, ".bower.json"));
+    return filesystem_1.readFileAsJson(path.resolve(modulePath, ".bower.json"));
 }
 exports.readBowerModuleJson = readBowerModuleJson;
 /**
- * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found
- */
-function readFileAsJson(fullPath) {
-    "use strict";
-    if (!fs.existsSync(fullPath)) {
-        void errors.fileNotFound(fullPath).exit();
-    }
-    return JSON.parse(fs.readFileSync(fullPath, "utf8"));
-}
-exports.readFileAsJson = readFileAsJson;
-/**
- * Generate a dependency pointer
+ * Generate a dependency pointer.
  */
 function generateDependencyPointer(dependencyName, dependencyVersion) {
     "use strict";
@@ -97,3 +103,4 @@ var BowerModuleType;
     BowerModuleType[BowerModuleType["es6"] = 3] = "es6";
     BowerModuleType[BowerModuleType["yui"] = 4] = "yui";
 })(BowerModuleType || (BowerModuleType = {}));
+__export(require("./filesystem"));

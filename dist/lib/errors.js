@@ -1,8 +1,5 @@
 "use strict";
-class FileNotFoundError extends Error {
-    constructor(filePath) {
-        super(`No file found at path: ${filePath}`);
-    }
+class ExitableError extends Error {
     /**
      * Exit with this error
      */
@@ -10,7 +7,19 @@ class FileNotFoundError extends Error {
         return exitWithError(this);
     }
 }
+exports.ExitableError = ExitableError;
+class FileNotFoundError extends ExitableError {
+    constructor(filePath) {
+        super(`No file found at path: ${filePath}`);
+    }
+}
 exports.FileNotFoundError = FileNotFoundError;
+class UpstreamDependencyError extends ExitableError {
+    constructor(dependencyName, err) {
+        super(`Error recieved from upstream dependency "${dependencyName}": ${err.message}`);
+    }
+}
+exports.UpstreamDependencyError = UpstreamDependencyError;
 /**
  * Create a FileNotFound error against the supplied path
  */
@@ -20,11 +29,19 @@ function fileNotFound(filePath) {
 }
 exports.fileNotFound = fileNotFound;
 /**
+ * Create a UpstreamDependencyError error for a dependency
+ */
+function upstreamDependencyFailure(dependencyName, err) {
+    "use strict";
+    return new UpstreamDependencyError(dependencyName, err);
+}
+exports.upstreamDependencyFailure = upstreamDependencyFailure;
+/**
  * Terminate the program with the error supplied
  */
 function exitWithError(err) {
     "use strict";
-    void console.error(err.message);
+    console.error(err.message);
     return process.exit(1);
 }
 exports.exitWithError = exitWithError;

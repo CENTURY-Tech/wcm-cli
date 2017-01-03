@@ -19,10 +19,12 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^2.9.0",
+    "fs-extra": "^1.0.0",
     "object.values": "^1.0.4"
   },
   "devDependencies": {
     "@types/commander": "^2.3.31",
+    "@types/fs-extra": "0.0.35",
     "tslint": "^4.2.0",
     "typescript": "^2.1.4"
   }
