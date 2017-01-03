@@ -3,6 +3,10 @@
 const fs = require("fs");
 const program = require("commander");
 const shrinkwrap_1 = require("./shrinkwrap");
+/**
+ * Shims
+ */
+require("./shims");
 const pkg = fs.readFileSync("package.json");
 program
     .version(pkg["version"])

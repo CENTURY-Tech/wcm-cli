@@ -6,33 +6,62 @@ import * as program from "commander";
 import * as lib from "../lib";
 
 export function exec(program: program.IExportedCommand) {
-  const bowerJson = lib.readBowerJson(program["path"]);
-  const dependencyGraph: IDependencyGraph = {};
+  "use strict";
 
-  for (let dependency in bowerJson.dependencies) {
-    dependencyGraph[dependency] = resolveBowerModule(path.join(__dirname, "bower_components", dependency))
-  }
+  const bowerJson = lib.readBowerJson(program["path"]);
+
+  /**
+   * A verbose dependency graph to be used in the shrinkwrapping process. This graph contains all of the required
+   * modules listed within this project and recursively within it's dependencies.
+   */
+  const dependencyGraphVerbose: lib.IDependencyGraphVerbose = generateGraph(bowerJson);
+
+  /**
+   * A human readable dependency graph that will eventually reside in the "manifest.json" file once the shrinkwrapping
+   * process has completed.
+   */
+  const dependencyGraphReadable: lib.IDependencyGraphReadable = dependencyGraphVerbose.toReadable();
+
+  console.log(dependencyGraphReadable);
 }
 
 /**
- * Recursively 
+ * Build a verbose dependency graph to be used in the shrinkwrapping process. This graph contains all of the required
+ * modules listed within this project and recursively within it's dependencies.
  */
-function resolveBowerModule(modulePath: string): IPackageShorthand {
-  const bowerModuleJson: lib.IBowerModuleJSON = lib.readBowerModuleJson(modulePath);
-  const dependencyShorthand: IPackageShorthand = { version: bowerModuleJson._release };
+function generateGraph(bowerJson: lib.IBowerJSON): lib.IDependencyGraphVerbose {
+  "use strict";
 
-  for (let dependency in bowerModuleJson.dependencies) {
-    dependencyShorthand[dependency] = resolveBowerModule(path.join(modulePath, "..", dependency));
+  const dependencyGraphVerbose: lib.IDependencyGraphVerbose = new lib.DependencyGraphVerbose();
+
+  for (let dependency in bowerJson.dependencies) {
+    const iterator = traverseModule(path.join(program["path"], "bower_components", dependency), dependencyGraphVerbose);
+
+    for (let dependency of iterator) {
+      dependencyGraphVerbose.addDependency(dependency);
+    }
   }
 
-  return dependencyShorthand;
+  return dependencyGraphVerbose;
 }
 
-interface IPackageShorthand {
-  readonly version: string;
-  readonly dependencies?: IDependencyGraph;
-}
+/**
+ * Recursively resolve the dependencies of the bower release/module at the path supplied
+ */
+function* traverseModule(modulePath: string, currentGraph: lib.IDependencyGraphVerbose): IterableIterator<lib.IDependencyShorthand> {
+  "use strict";
 
-interface IDependencyGraph {
-  [dependencyName: string]: IPackageShorthand;
+  const moduleJson: lib.IBowerModuleJSON = lib.readBowerModuleJson(modulePath);
+
+  yield new lib.DependencyShorthand({
+    name: moduleJson.name,
+    version: moduleJson._release,
+    dependencies: moduleJson.dependencies ? Object.keys(moduleJson.dependencies) : []
+  });
+
+  for (let dependency in moduleJson.dependencies) {
+    if (!currentGraph.hasDependency(dependency)) {
+      yield* traverseModule(path.join(modulePath, "..", dependency), currentGraph);
+    }
+  }
 }
