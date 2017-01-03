@@ -23,10 +23,16 @@ export function readBowerJson(projectPath: string): IBowerJSON {
   return readFileAsJson<IBowerJSON>(path.resolve(projectPath, "bower.json"));
 }
 
+export function readBowerModuleJson(modulePath: string): IBowerModuleJSON {
+  "use strict";
+
+  return readFileAsJson<IBowerModuleJSON>(path.resolve(modulePath, ".bower.json"));
+}
+
 /**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found
  */
-function readFileAsJson<T extends Object>(fullPath: string): T {
+export function readFileAsJson<T extends Object>(fullPath: string): T {
   "use strict";
 
   if (!fs.existsSync(fullPath)) {
@@ -96,7 +102,7 @@ export interface IPackageJSON extends Object {
 
 }
 
-interface IBowerJSON extends Object {
+export interface IBowerJSON extends Object {
 
   /**
    * The name of the package as stored in the registry
@@ -170,6 +176,10 @@ interface IBowerJSON extends Object {
 
 }
 
+export interface IBowerModuleJSON extends IBowerJSON {
+  readonly _release: string;
+}
+
 enum BowerModuleType {
   "globals",
   "amd",
@@ -210,7 +220,7 @@ interface IConfig {
 /**
  * A map of dependencies
  */
-interface IDependencyMap {
+export interface IDependencyMap {
   [dependencyName: string]: string;
 }
 
