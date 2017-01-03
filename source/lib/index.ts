@@ -4,19 +4,34 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as errors from "./errors";
+import { readFileAsJson, removeDirectory, copyModule } from "./filesystem";
+
+interface IDependencyShorthandProps {
+  readonly name: string;
+  readonly path: string;
+  readonly type: "bower" | "npm";
+  readonly version: string;
+  readonly dependencies: string[];
+}
+
+interface IDependencyShorthand extends IDependencyShorthandProps {
+  generateDependencyPointer(): string;
+}
 
 export class DependencyShorthand implements IDependencyShorthand {
 
-  public readonly name;
-  public readonly version;
-  public readonly dependencies;
+  public readonly name: string;
+  public readonly path: string;
+  public readonly type: "bower" | "npm";
+  public readonly version: string;
+  public readonly dependencies: string[];
 
-  constructor(args) {
+  constructor(args: IDependencyShorthandProps) {
     Object.assign(this, args);
   }
 
   /**
-   * Generate a dependency pointer for this dependency
+   * Generate a dependency pointer for this dependency.
    */
   public generateDependencyPointer(): string {
     "use strict";
@@ -26,7 +41,17 @@ export class DependencyShorthand implements IDependencyShorthand {
 
 }
 
-export class DependencyGraphVerbose implements IDependencyGraphVerbose {
+interface IDependencyGraphVerbose {
+  readonly dependencies: {
+    [dependencyName: string]: IDependencyShorthand
+  };
+}
+
+export interface IDependencyGraphReadable {
+  [dependencyPointer: string]: string[];
+}
+
+export class DependencyGraph implements IDependencyGraphVerbose {
 
   readonly dependencies: {
     [dependencyName: string]: IDependencyShorthand
@@ -44,8 +69,20 @@ export class DependencyGraphVerbose implements IDependencyGraphVerbose {
     return this.dependencies[dependencyName] !== undefined;
   }
 
+  public async copyModules(outDestination: string): Promise<void> {
+    "use strict";
+
+    await removeDirectory(outDestination);
+
+    const dependencyPaths: string[] = [];
+
+    for (let dependency of Object.values(this.dependencies)) {
+      await copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
+    }
+  }
+
   /**
-   * Convert this verbose dependency graph into a human readable dependency graph
+   * Convert this verbose dependency graph into a human readable dependency graph.
    */
   public toReadable(): IDependencyGraphReadable {
     "use strict";
@@ -65,7 +102,7 @@ export class DependencyGraphVerbose implements IDependencyGraphVerbose {
 }
 
 /**
- * Read and parse the package JSON file at the supplied path
+ * Read and parse the package JSON file at the supplied path.
  */
 export function readPackageJson(projectPath: string): IPackageJSON {
   "use strict";
@@ -74,7 +111,7 @@ export function readPackageJson(projectPath: string): IPackageJSON {
 }
 
 /**
- * Read and parse the bower JSON file at the supplied path
+ * Read and parse the bower JSON file at the supplied path.
  */
 export function readBowerJson(projectPath: string): IBowerJSON {
   "use strict";
@@ -83,7 +120,7 @@ export function readBowerJson(projectPath: string): IBowerJSON {
 }
 
 /**
- * Read and parse the release/module bower JSON file at the supplied path
+ * Read and parse the release/module bower JSON file at the supplied path.
  */
 export function readBowerModuleJson(modulePath: string): IBowerModuleJSON {
   "use strict";
@@ -92,20 +129,7 @@ export function readBowerModuleJson(modulePath: string): IBowerModuleJSON {
 }
 
 /**
- * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found
- */
-export function readFileAsJson<T extends Object>(fullPath: string): T {
-  "use strict";
-
-  if (!fs.existsSync(fullPath)) {
-    void errors.fileNotFound(fullPath).exit();
-  }
-
-  return JSON.parse(fs.readFileSync(fullPath, "utf8"));
-}
-
-/**
- * Generate a dependency pointer
+ * Generate a dependency pointer.
  */
 export function generateDependencyPointer(dependencyName: string, dependencyVersion: string): string {
   "use strict";
@@ -176,72 +200,72 @@ export interface IPackageJSON extends Object {
 export interface IBowerJSON extends Object {
 
   /**
-   * The name of the package as stored in the registry
+   * The name of the package as stored in the registry.
    */
   readonly name: string;
 
   /**
-   * A description of the package limited to 140 characters
+   * A description of the package limited to 140 characters.
    */
   readonly description?: string;
 
   /**
-   * The entry-point files necessary to use your package
+   * The entry-point files necessary to use your package.
    */
   readonly main?: string | string[];
 
   /**
-   * The type of module defined in the main JavaScript file
+   * The type of module defined in the main JavaScript file.
    */
   readonly moduleType?: BowerModuleType | BowerModuleType[];
 
   /**
-   * SPDX license identifier or path/url to a license
+   * SPDX license identifier or path/url to a license.
    */
   readonly license?: string | string[];
 
   /**
-   * A list of files for Bower to ignore when installing your package
+   * A list of files for Bower to ignore when installing your package.
    */
   readonly ignore?: string[];
 
   /**
-   * Helps make your package easier to discover without people needing to know its name
+   * Helps make your package easier to discover without people needing to know its name.
    */
   readonly keywords?: string[];
 
   /**
-   * A list of people that authored the contents of the package
+   * A list of people that authored the contents of the package.
    */
   readonly authors?: string[] | IAuthor[];
 
   /**
-   * URL to learn more about the package
+   * URL to learn more about the package.
    */
   readonly homepage?: string;
 
   /**
-   * The repository in which the source code can be found
+   * The repository in which the source code can be found.
    */
   readonly repository?: IRepository;
 
   /**
-   * Dependencies are specified with a simple hash of package name to a semver compatible identifier or URL
+   * Dependencies are specified with a simple hash of package name to a semver compatible identifier or URL.
    */
   readonly dependencies?: IDependencyMap;
 
   /**
-   * Dependencies that are only needed for development of the package, e.g., test framework or building documentation
+   * Dependencies that are only needed for development of the package, e.g., test framework or building documentation.
    */
   readonly devDependencies?: IDependencyMap;
 
   /**
-   * Dependency versions to automatically resolve with if conflicts occur between packages
+   * Dependency versions to automatically resolve with if conflicts occur between packages.
    */
   readonly resolutions?: IDependencyMap;
 
   /**
-   * If set to true, Bower will refuse to publish it
+   * If set to true, Bower will refuse to publish it.
    */
   readonly private?: boolean;
 
@@ -260,7 +284,7 @@ enum BowerModuleType {
 }
 
 /**
- * An author or contributor
+ * An author or contributor.
  */
 interface IAuthor {
   readonly name: string;
@@ -269,14 +293,14 @@ interface IAuthor {
 }
 
 /**
- * A map of exposed bin commands
+ * A map of exposed bin commands.
  */
 interface IBinMap {
   readonly[commandName: string]: string;
 }
 
 /**
- * A bugs link
+ * A bugs link.
  */
 interface IBugs {
   readonly email: string;
@@ -289,14 +313,14 @@ interface IConfig {
 }
 
 /**
- * A map of dependencies
+ * A map of dependencies.
  */
 export interface IDependencyMap {
   readonly[dependencyName: string]: string;
 }
 
 /**
- * CommonJS package structure
+ * CommonJS package structure.
  */
 interface IDirectories {
   readonly lib?: string;
@@ -316,7 +340,7 @@ interface IPublishConfig {
 }
 
 /**
- * A project repository
+ * A project repository.
  */
 interface IRepository {
   readonly type: string;
@@ -327,24 +351,4 @@ interface IScriptsMap {
   readonly[scriptName: string]: string;
 }
 
-export interface IDependencyShorthand {
-  readonly name: string;
-  readonly version: string;
-  readonly dependencies: string[];
-
-  generateDependencyPointer(): string;
-}
-
-export interface IDependencyGraphVerbose {
-  readonly dependencies: {
-    [dependencyName: string]: IDependencyShorthand
-  };
-
-  addDependency(dependency: IDependencyShorthand): void;
-  hasDependency(dependencyName: string): boolean;
-  toReadable(): IDependencyGraphReadable;
-}
-
-export interface IDependencyGraphReadable {
-  [dependencyPointer: string]: string[];
-}
+export * from "./filesystem"
