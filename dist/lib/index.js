@@ -29,14 +29,24 @@ class DependencyGraph {
     constructor() {
         this.dependencies = {};
     }
+    /**
+     * Add a dependency to the dependency graph.
+     */
     addDependency(dependency) {
         "use strict";
         this.dependencies[dependency.name] = dependency;
     }
+    /**
+     * Check to see whether or not a dependency with the supplied name is currently held within the instance of the
+     * dependency graph.
+     */
     hasDependency(dependencyName) {
         "use strict";
         return this.dependencies[dependencyName] !== undefined;
     }
+    /**
+     *
+     */
     copyModules(outDestination) {
         "use strict";
         return __awaiter(this, void 0, void 0, function* () {
