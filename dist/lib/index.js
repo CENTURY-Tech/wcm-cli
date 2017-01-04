@@ -11,6 +11,7 @@ function __export(m) {
     for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
 }
 const path = require("path");
+const progress = require("./logger/progress");
 const filesystem_1 = require("./filesystem");
 class DependencyShorthand {
     constructor(args) {
@@ -53,9 +54,10 @@ class DependencyGraph {
         "use strict";
         return __awaiter(this, void 0, void 0, function* () {
             yield filesystem_1.removeDirectory(outDestination);
-            for (let dependency of Object.values(this.dependencies)) {
-                yield filesystem_1.copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
-            }
+            yield progress.ArrayTracker.from(Object.values(this.dependencies))
+                .trackForEachAsync("Copying modules", (dependency) => {
+                return filesystem_1.copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
+            });
         });
     }
     /**
@@ -67,13 +69,20 @@ class DependencyGraph {
             graph: {},
             shrinkwrap: {}
         };
-        for (let dependency of Object.values(this.dependencies)) {
+        Object.values(this.dependencies)
+            .sort((a, b) => {
+            return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1;
+        })
+            .forEach((dependency) => {
             dependencyGraphReadable.graph[dependency.name] = dependency.dependencies
                 .map((dependency) => {
                 return this.dependencies[dependency].name;
+            })
+                .sort((a, b) => {
+                return a.toLowerCase() > b.toLowerCase() ? 1 : -1;
             });
             dependencyGraphReadable.shrinkwrap[dependency.name] = dependency.version;
-        }
+        });
         return dependencyGraphReadable;
     }
 }
