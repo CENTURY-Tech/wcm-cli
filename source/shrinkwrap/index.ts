@@ -5,7 +5,7 @@ import * as path from "path";
 import * as program from "commander";
 import * as lib from "../lib";
 
-export function exec(program: program.IExportedCommand) {
+export async function exec(program: program.IExportedCommand) {
   "use strict";
 
   /**
@@ -14,10 +14,11 @@ export function exec(program: program.IExportedCommand) {
    */
   const dependencyGraph = generateGraph(path.normalize(program["path"]));
 
-  dependencyGraph.copyModules(path.normalize(program["dest"]))
-    .then(() => {
-      console.log("Done!");
-    });
+  await dependencyGraph.copyModules(path.normalize(program["dest"]));
+  
+  await lib.writeJsonToFile(path.join(program["path"], "manifest.json"), dependencyGraph.toReadable());
+
+  console.log("Done");
 }
 
 /**

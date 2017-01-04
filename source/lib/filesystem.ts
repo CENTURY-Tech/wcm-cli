@@ -19,13 +19,30 @@ export function readFileAsJson<T extends Object>(fullPath: string): T {
 }
 
 /**
+ * Write the supplied JSON to a new file at the path provided.
+ */
+export async function writeJsonToFile(fullPath: string, json: Object): Promise<void> {
+  "use strict";
+
+  await new Promise((resolve): void => {
+    void fs.writeJson(fullPath, json, (err: Error): void => {
+      if (err) {
+        upstreamDependencyFailure("fs-extra", err).exit();
+      }
+
+      void resolve();
+    });
+  });
+}
+
+/**
  * Remove the directory at the path specified.
  */
 export async function removeDirectory(directoryPath: string): Promise<void> {
   "use strict";
 
   await new Promise((resolve): void => {
-    fs.remove(directoryPath, (err: Error): void => {
+    void fs.remove(directoryPath, (err: Error): void => {
       if (err) {
         upstreamDependencyFailure("fs-extra", err).exit();
       }
@@ -43,7 +60,7 @@ export async function copyModule(dependencyPath: string, destinationPath: string
   "use strict";
 
   await new Promise((resolve): void => {
-    fs.copy(dependencyPath, destinationPath, (err: Error): void => {
+    void fs.copy(dependencyPath, destinationPath, (err: Error): void => {
       if (err) {
         upstreamDependencyFailure("fs-extra", err).exit();
       }
