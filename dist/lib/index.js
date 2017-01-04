@@ -37,7 +37,7 @@ class DependencyGraph {
         this.dependencies[dependency.name] = dependency;
     }
     /**
-     * Check to see whether or not a dependency with the supplied name is currently held within the instance of the
+     * Check to see whether or not a dependency with the supplied name is currently held within this instance of the
      * dependency graph.
      */
     hasDependency(dependencyName) {
@@ -45,13 +45,14 @@ class DependencyGraph {
         return this.dependencies[dependencyName] !== undefined;
     }
     /**
-     *
+     * Copy the modules currently held within this instance of the dependency graph to the output destination supplied.
+     * Please note that this function will also clear the contents of the output destination prior to performing this
+     * task.
      */
     copyModules(outDestination) {
         "use strict";
         return __awaiter(this, void 0, void 0, function* () {
             yield filesystem_1.removeDirectory(outDestination);
-            const dependencyPaths = [];
             for (let dependency of Object.values(this.dependencies)) {
                 yield filesystem_1.copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
             }
@@ -62,12 +63,16 @@ class DependencyGraph {
      */
     toReadable() {
         "use strict";
-        const dependencyGraphReadable = {};
+        const dependencyGraphReadable = {
+            graph: {},
+            shrinkwrap: {}
+        };
         for (let dependency of Object.values(this.dependencies)) {
-            dependencyGraphReadable[dependency.generateDependencyPointer()] = dependency.dependencies
+            dependencyGraphReadable.graph[dependency.name] = dependency.dependencies
                 .map((dependency) => {
-                return this.dependencies[dependency].generateDependencyPointer();
+                return this.dependencies[dependency].name;
             });
+            dependencyGraphReadable.shrinkwrap[dependency.name] = dependency.version;
         }
         return dependencyGraphReadable;
     }

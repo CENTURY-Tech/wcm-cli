@@ -24,14 +24,30 @@ function readFileAsJson(fullPath) {
 }
 exports.readFileAsJson = readFileAsJson;
 /**
+ * Write the supplied JSON to a new file at the path provided.
+ */
+function writeJsonToFile(fullPath, json) {
+    "use strict";
+    return __awaiter(this, void 0, void 0, function* () {
+        yield new Promise((resolve) => {
+            void fs.writeJson(fullPath, json, (err) => {
+                if (err) {
+                    errors_1.upstreamDependencyFailure("fs-extra", err).exit();
+                }
+                void resolve();
+            });
+        });
+    });
+}
+exports.writeJsonToFile = writeJsonToFile;
+/**
  * Remove the directory at the path specified.
  */
-@logProgress("Removing directory at path: %s", 0)
 function removeDirectory(directoryPath) {
     "use strict";
     return __awaiter(this, void 0, void 0, function* () {
         yield new Promise((resolve) => {
-            fs.remove(directoryPath, (err) => {
+            void fs.remove(directoryPath, (err) => {
                 if (err) {
                     errors_1.upstreamDependencyFailure("fs-extra", err).exit();
                 }
@@ -49,7 +65,7 @@ function copyModule(dependencyPath, destinationPath) {
     "use strict";
     return __awaiter(this, void 0, void 0, function* () {
         yield new Promise((resolve) => {
-            fs.copy(dependencyPath, destinationPath, (err) => {
+            void fs.copy(dependencyPath, destinationPath, (err) => {
                 if (err) {
                     errors_1.upstreamDependencyFailure("fs-extra", err).exit();
                 }
@@ -59,18 +75,3 @@ function copyModule(dependencyPath, destinationPath) {
     });
 }
 exports.copyModule = copyModule;
-function logProgress(message, ...argIndexes) {
-    console.log('here')
-    return function (target) {
-        console.log(message, Array.from(arguments).filter((value, i) => {
-            return argIndexes.includes(i);
-        }));
-        const call = target.apply(this, arguments);
-        call.finally(() => {
-            console.log(message + " [done]", Array.from(arguments).filter((value, i) => {
-                return argIndexes.includes(i);
-            }));
-        });
-        return call;
-    };
-}
