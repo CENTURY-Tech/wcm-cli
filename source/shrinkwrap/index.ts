@@ -15,7 +15,7 @@ export async function exec(program: program.IExportedCommand) {
   const dependencyGraph = generateGraph(path.normalize(program["path"]));
 
   await dependencyGraph.copyModules(path.normalize(program["dest"]));
-  
+
   await lib.writeJsonToFile(path.join(program["path"], "manifest.json"), dependencyGraph.toReadable());
 
   console.log("Done");
