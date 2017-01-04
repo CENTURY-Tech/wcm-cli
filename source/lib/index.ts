@@ -48,7 +48,8 @@ interface IDependencyGraphVerbose {
 }
 
 export interface IDependencyGraphReadable {
-  [dependencyPointer: string]: string[];
+  graph: { [dependencyName: string]: string[] };
+  shrinkwrap: { [dependencyName: string]: string };
 }
 
 export class DependencyGraph implements IDependencyGraphVerbose {
@@ -67,7 +68,7 @@ export class DependencyGraph implements IDependencyGraphVerbose {
   }
 
   /**
-   * Check to see whether or not a dependency with the supplied name is currently held within the instance of the
+   * Check to see whether or not a dependency with the supplied name is currently held within this instance of the
    * dependency graph.
    */
   public hasDependency(dependencyName: string): boolean {
@@ -77,14 +78,14 @@ export class DependencyGraph implements IDependencyGraphVerbose {
   }
 
   /**
-   *
+   * Copy the modules currently held within this instance of the dependency graph to the output destination supplied.
+   * Please note that this function will also clear the contents of the output destination prior to performing this
+   * task.
    */
   public async copyModules(outDestination: string): Promise<void> {
     "use strict";
 
     await removeDirectory(outDestination);
-
-    const dependencyPaths: string[] = [];
 
     for (let dependency of Object.values(this.dependencies)) {
       await copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
@@ -97,13 +98,18 @@ export class DependencyGraph implements IDependencyGraphVerbose {
   public toReadable(): IDependencyGraphReadable {
     "use strict";
 
-    const dependencyGraphReadable: IDependencyGraphReadable = {};
+    const dependencyGraphReadable: IDependencyGraphReadable = {
+      graph: {},
+      shrinkwrap: {}
+    };
 
     for (let dependency of Object.values(this.dependencies)) {
-      dependencyGraphReadable[dependency.generateDependencyPointer()] = dependency.dependencies
+      dependencyGraphReadable.graph[dependency.name] = dependency.dependencies
         .map((dependency: string): string => {
-          return this.dependencies[dependency].generateDependencyPointer();
+          return this.dependencies[dependency].name;
         });
+
+      dependencyGraphReadable.shrinkwrap[dependency.name] = dependency.version;
     }
 
     return dependencyGraphReadable;
