@@ -11,18 +11,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
  * Dependencies
  */
 const path = require("path");
-const program = require("commander");
 const lib = require("../lib");
-function exec(program) {
+function exec(projectPath, outDestination) {
     "use strict";
     return __awaiter(this, void 0, void 0, function* () {
         /**
          * A verbose dependency graph to be used in the shrinkwrapping process. This graph contains all of the required
          * modules listed within this project and recursively within it's dependencies.
          */
-        const dependencyGraph = generateGraph(path.normalize(program["path"]));
-        yield dependencyGraph.copyModules(path.normalize(program["dest"]));
-        yield lib.writeJsonToFile(path.join(program["path"], "manifest.json"), dependencyGraph.toReadable());
+        const dependencyGraph = generateGraph(path.normalize(projectPath));
+        yield dependencyGraph.copyModules(outDestination);
+        yield lib.writeJsonToFile(path.join(projectPath, "manifest.json"), dependencyGraph.toReadable());
         console.log("Done");
     });
 }
@@ -36,14 +35,13 @@ function generateGraph(projectPath) {
     const bowerJson = lib.readBowerJson(projectPath);
     const dependencyGraphVerbose = new lib.DependencyGraph();
     for (let dependency in bowerJson.dependencies) {
-        const iterator = traverseModule(path.join(program["path"], "bower_components", dependency), dependencyGraphVerbose);
+        const iterator = traverseModule(path.join(projectPath, "bower_components", dependency), dependencyGraphVerbose);
         for (let dependency of iterator) {
             dependencyGraphVerbose.addDependency(dependency);
         }
     }
     return dependencyGraphVerbose;
 }
-exports.generateGraph = generateGraph;
 /**
  * Recursively resolve the dependencies of the bower release/module at the path supplied.
  */

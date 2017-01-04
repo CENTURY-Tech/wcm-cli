@@ -41,6 +41,9 @@ function trackForEachAsync(message, arr, fn) {
     });
 }
 exports.trackForEachAsync = trackForEachAsync;
+/**
+ * An extension of the global Array class with a handful of added methods to integrate with the progress bars.
+ */
 class ArrayTracker extends Array {
     /**
      * Wrap the progress of a synchronous the for each loop with a progress bar.

@@ -39,12 +39,15 @@ export async function trackForEachAsync(message: string, arr: any[], fn: ForEach
   }
 }
 
+/**
+ * An extension of the global Array class with a handful of added methods to integrate with the progress bars.
+ */
 export class ArrayTracker<T> extends Array<T> {
 
   /**
    * Wrap the progress of a synchronous the for each loop with a progress bar.
    */
-  trackForEachSync(message: string, fn: ForEachCallback<any>): void {
+  public trackForEachSync(message: string, fn: ForEachCallback<any>): void {
     "use strict";
 
     void trackForEachSync(message, this, fn);
@@ -53,7 +56,7 @@ export class ArrayTracker<T> extends Array<T> {
   /**
    * Wrap the progress of an asynchronous the for each loop with a progress bar.
    */
-  async trackForEachAsync(message: string, fn: ForEachCallback<Promise<any>>): Promise<void> {
+  public async trackForEachAsync(message: string, fn: ForEachCallback<Promise<any>>): Promise<void> {
     "use strict";
 
     await trackForEachAsync(message, this as any, fn);

@@ -20,12 +20,14 @@
   "dependencies": {
     "commander": "^2.9.0",
     "fs-extra": "^1.0.0",
+    "htmlparser2": "^3.9.2",
     "object.values": "^1.0.4",
     "progress": "^1.1.8"
   },
   "devDependencies": {
     "@types/commander": "^2.3.31",
     "@types/fs-extra": "0.0.35",
+    "@types/htmlparser2": "^3.7.29",
     "@types/progress": "^1.1.28",
     "tslint": "^4.2.0",
     "typescript": "^2.1.4"
