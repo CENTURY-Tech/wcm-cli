@@ -4,6 +4,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as errors from "./errors";
+import * as progress from "./logger/progress";
 import { readFileAsJson, removeDirectory, copyModule } from "./filesystem";
 
 interface IDependencyShorthandProps {
@@ -87,9 +88,10 @@ export class DependencyGraph implements IDependencyGraphVerbose {
 
     await removeDirectory(outDestination);
 
-    for (let dependency of Object.values(this.dependencies)) {
-      await copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
-    }
+    await progress.ArrayTracker.from(Object.values(this.dependencies))
+      .trackForEachAsync("Copying modules", (dependency: IDependencyShorthand): Promise<void> => {
+        return copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
+      });
   }
 
   /**
@@ -103,14 +105,21 @@ export class DependencyGraph implements IDependencyGraphVerbose {
       shrinkwrap: {}
     };
 
-    for (let dependency of Object.values(this.dependencies)) {
-      dependencyGraphReadable.graph[dependency.name] = dependency.dependencies
-        .map((dependency: string): string => {
-          return this.dependencies[dependency].name;
-        });
+    Object.values(this.dependencies)
+      .sort((a: IDependencyShorthand, b: IDependencyShorthand): number => {
+        return a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1;
+      })
+      .forEach((dependency: IDependencyShorthand): void => {
+        dependencyGraphReadable.graph[dependency.name] = dependency.dependencies
+          .map((dependency: string): string => {
+            return this.dependencies[dependency].name;
+          })
+          .sort((a: string, b: string): number => {
+            return a.toLowerCase() > b.toLowerCase() ? 1 : -1;
+          });
 
-      dependencyGraphReadable.shrinkwrap[dependency.name] = dependency.version;
-    }
+        dependencyGraphReadable.shrinkwrap[dependency.name] = dependency.version;
+      });
 
     return dependencyGraphReadable;
   }
