@@ -3,6 +3,7 @@
  */
 import * as fs from "fs-extra";
 import * as path from "path";
+import * as bowerJSON from "gist-bower-json";
 import { fileNotFound, upstreamDependencyFailure } from "./errors";
 
 /**
@@ -40,16 +41,33 @@ export function readFileSync(fullPath: string): string {
 }
 
 /**
+ * Remove the directory at the path specified.
+ */
+export async function removeDirectory(directoryPath: string): Promise<void> {
+  "use strict";
+
+  await new Promise((resolve): void => {
+    void fs.remove(directoryPath, (err: Error): void => {
+      if (err) {
+        upstreamDependencyFailure("fs-extra", err).exit();
+      }
+
+      void resolve();
+    });
+  });
+}
+
+/**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
  */
-export function readFileAsJson<T extends Object>(fullPath: string): T {
+export function readFileAsJsonSync<T extends Object>(fullPath: string): T {
   "use strict";
 
   if (!fs.existsSync(fullPath)) {
     fileNotFound(fullPath).exit();
   }
 
-  return JSON.parse(fs.readFileSync(fullPath, "utf8"));
+  return fs.readJsonSync(fullPath);
 }
 
 /**
@@ -70,20 +88,21 @@ export async function writeJsonToFile(fullPath: string, json: Object): Promise<v
 }
 
 /**
- * Remove the directory at the path specified.
+ * Read and parse the bower JSON file at the supplied path.
  */
-export async function removeDirectory(directoryPath: string): Promise<void> {
+export function readBowerJsonSync(projectPath: string): bowerJSON.IBowerJSON {
   "use strict";
 
-  await new Promise((resolve): void => {
-    void fs.remove(directoryPath, (err: Error): void => {
-      if (err) {
-        upstreamDependencyFailure("fs-extra", err).exit();
-      }
+  return readFileAsJsonSync<bowerJSON.IBowerJSON>(path.resolve(projectPath, "bower.json"));
+}
 
-      void resolve();
-    });
-  });
+/**
+ * Read and parse the release/module bower JSON file at the supplied path.
+ */
+export function readBowerModuleJsonSync(modulePath: string): bowerJSON.IBowerModuleJSON {
+  "use strict";
+
+  return readFileAsJsonSync<bowerJSON.IBowerModuleJSON>(path.resolve(modulePath, ".bower.json"));
 }
 
 /**
@@ -102,4 +121,15 @@ export async function copyModule(dependencyPath: string, destinationPath: string
       void resolve();
     });
   });
+}
+
+export function* walkDirectory(directoryPath: string): IterableIterator<{fullPath: string, contents: string }> {
+  "use strict";
+
+  for (let filePath of fs["walkSync"](directoryPath)) {
+    yield {
+      fullPath: filePath,
+      contents: readFileSync(filePath)
+    };
+  }
 }

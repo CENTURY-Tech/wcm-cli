@@ -7,22 +7,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
-function __export(m) {
-    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
-}
 const path = require("path");
-const progress = require("./logger/progress");
+const logger_1 = require("./logger");
 const filesystem_1 = require("./filesystem");
 class DependencyShorthand {
     constructor(args) {
         Object.assign(this, args);
-    }
-    /**
-     * Generate a dependency pointer for this dependency.
-     */
-    generateDependencyPointer() {
-        "use strict";
-        return generateDependencyPointer(this.name, this.version);
     }
 }
 exports.DependencyShorthand = DependencyShorthand;
@@ -54,7 +44,7 @@ class DependencyGraph {
         "use strict";
         return __awaiter(this, void 0, void 0, function* () {
             yield filesystem_1.removeDirectory(outDestination);
-            yield progress.ArrayTracker.from(Object.values(this.dependencies))
+            yield logger_1.progress.ArrayTracker.from(Object.values(this.dependencies))
                 .trackForEachAsync("Copying modules", (dependency) => {
                 return filesystem_1.copyModule(dependency.path, path.join(outDestination, dependency.name, dependency.version));
             });
@@ -87,44 +77,3 @@ class DependencyGraph {
     }
 }
 exports.DependencyGraph = DependencyGraph;
-/**
- * Read and parse the package JSON file at the supplied path.
- */
-function readPackageJson(projectPath) {
-    "use strict";
-    return filesystem_1.readFileAsJson(path.resolve(projectPath, "package.json"));
-}
-exports.readPackageJson = readPackageJson;
-/**
- * Read and parse the bower JSON file at the supplied path.
- */
-function readBowerJson(projectPath) {
-    "use strict";
-    return filesystem_1.readFileAsJson(path.resolve(projectPath, "bower.json"));
-}
-exports.readBowerJson = readBowerJson;
-/**
- * Read and parse the release/module bower JSON file at the supplied path.
- */
-function readBowerModuleJson(modulePath) {
-    "use strict";
-    return filesystem_1.readFileAsJson(path.resolve(modulePath, ".bower.json"));
-}
-exports.readBowerModuleJson = readBowerModuleJson;
-/**
- * Generate a dependency pointer.
- */
-function generateDependencyPointer(dependencyName, dependencyVersion) {
-    "use strict";
-    return `${dependencyName}@${dependencyVersion}`;
-}
-exports.generateDependencyPointer = generateDependencyPointer;
-var BowerModuleType;
-(function (BowerModuleType) {
-    BowerModuleType[BowerModuleType["globals"] = 0] = "globals";
-    BowerModuleType[BowerModuleType["amd"] = 1] = "amd";
-    BowerModuleType[BowerModuleType["node"] = 2] = "node";
-    BowerModuleType[BowerModuleType["es6"] = 3] = "es6";
-    BowerModuleType[BowerModuleType["yui"] = 4] = "yui";
-})(BowerModuleType || (BowerModuleType = {}));
-__export(require("./filesystem"));

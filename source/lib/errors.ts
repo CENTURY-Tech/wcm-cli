@@ -1,4 +1,4 @@
-export class ExitableError extends Error {
+class ExitableError extends Error {
 
   /**
    * Exit with this error
@@ -9,7 +9,7 @@ export class ExitableError extends Error {
 
 }
 
-export class FileNotFoundError extends ExitableError {
+class FileNotFoundError extends ExitableError {
 
   constructor(filePath: string) {
     super(`No file found at path: ${filePath}`);
@@ -17,7 +17,7 @@ export class FileNotFoundError extends ExitableError {
 
 }
 
-export class UpstreamDependencyError extends ExitableError {
+class UpstreamDependencyError extends ExitableError {
 
   constructor(dependencyName: string, err) {
     super(`Error recieved from upstream dependency "${dependencyName}": ${err.message}`);

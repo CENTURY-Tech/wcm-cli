@@ -2,34 +2,39 @@
  * Dependencies
  */
 import * as path from "path";
-import * as lib from "../lib";
-import * as htmlparser from "htmlparser2";
+import * as cheerio from "cheerio";
+import { readFileSync } from "../lib/filesystem";
 
-export async function exec(entryPath: string): Promise<any> {
+export async function exec(entryPath: string, linkHrefRegex: RegExp, dependenciesPathRegex: RegExp): Promise<any> {
   "use strict";
 
-  for (let file in traverseImports(entryPath)) {
-    console.log(file["relpath"]);
+  const processedPaths = [];
+
+  for (let linkImport of resolveLinkImports(entryPath, processedPaths, linkHrefRegex, dependenciesPathRegex)) {
+    console.log(linkImport["fullPath"]);
+    processedPaths.push(linkImport["fullPath"]);
   }
 }
 
 /**
- * Recursively process the link imports from the file at the supplied path and return a processed version with its
- * relative path. 
+ * Recursively process the link imports from the file at the supplied path.
  */
-function* traverseImports(entryPath: string, rootPath: string = entryPath): IterableIterator<Object> {
+function* resolveLinkImports(entryPath: string, processedPaths: string[], linkHrefRegex: RegExp, dependenciesPathRegex: RegExp): IterableIterator<Object> {
   "use strict";
 
-  const file: string = lib.readFileSync(entryPath);
-  const html = htmlparser
+  const $ = cheerio.load(readFileSync(entryPath));
 
   yield {
-    relpath: path.relative(rootPath, entryPath)
-  }
+    fullPath: path.normalize(entryPath)
 
-  for (let dependency in moduleJson.dependencies) {
-    if (!currentGraph.hasDependency(dependency)) {
-      yield* traverseModule(path.join(modulePath, "..", dependency), rootPath);
+  };
+
+  for (let link of $("link").toArray()) {
+    const linkHref = link.attribs["href"].replace(linkHrefRegex, "");
+    const linkPath = path.join(path.dirname(entryPath), linkHref);
+
+    if (!dependenciesPathRegex.test(linkHref) && !processedPaths.includes(linkPath)) {
+      yield* resolveLinkImports(linkPath, processedPaths, linkHrefRegex, dependenciesPathRegex);
     }
-  }}
+  }
 }
