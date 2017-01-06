@@ -11,8 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
  * Dependencies
  */
 const fs = require("fs-extra");
-const path = require("path");
-const errors_1 = require("./errors");
+const errors_1 = require("../errors");
 /**
  * Read the file at the supplied path asynchronously and throw an error if the file cannot be found.
  */
@@ -43,33 +42,16 @@ function readFileSync(fullPath) {
 }
 exports.readFileSync = readFileSync;
 /**
- * Remove the directory at the path specified.
- */
-function removeDirectory(directoryPath) {
-    "use strict";
-    return __awaiter(this, void 0, void 0, function* () {
-        yield new Promise((resolve) => {
-            void fs.remove(directoryPath, (err) => {
-                if (err) {
-                    errors_1.upstreamDependencyFailure("fs-extra", err).exit();
-                }
-                void resolve();
-            });
-        });
-    });
-}
-exports.removeDirectory = removeDirectory;
-/**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
  */
-function readFileAsJsonSync(fullPath) {
+function readFileAsJson(fullPath) {
     "use strict";
     if (!fs.existsSync(fullPath)) {
         errors_1.fileNotFound(fullPath).exit();
     }
-    return fs.readJsonSync(fullPath);
+    return JSON.parse(fs.readFileSync(fullPath, "utf8"));
 }
-exports.readFileAsJsonSync = readFileAsJsonSync;
+exports.readFileAsJson = readFileAsJson;
 /**
  * Write the supplied JSON to a new file at the path provided.
  */
@@ -88,21 +70,22 @@ function writeJsonToFile(fullPath, json) {
 }
 exports.writeJsonToFile = writeJsonToFile;
 /**
- * Read and parse the bower JSON file at the supplied path.
+ * Remove the directory at the path specified.
  */
-function readBowerJsonSync(projectPath) {
+function removeDirectory(directoryPath) {
     "use strict";
-    return readFileAsJsonSync(path.resolve(projectPath, "bower.json"));
+    return __awaiter(this, void 0, void 0, function* () {
+        yield new Promise((resolve) => {
+            void fs.remove(directoryPath, (err) => {
+                if (err) {
+                    errors_1.upstreamDependencyFailure("fs-extra", err).exit();
+                }
+                void resolve();
+            });
+        });
+    });
 }
-exports.readBowerJsonSync = readBowerJsonSync;
-/**
- * Read and parse the release/module bower JSON file at the supplied path.
- */
-function readBowerModuleJsonSync(modulePath) {
-    "use strict";
-    return readFileAsJsonSync(path.resolve(modulePath, ".bower.json"));
-}
-exports.readBowerModuleJsonSync = readBowerModuleJsonSync;
+exports.removeDirectory = removeDirectory;
 /**
  * Copy the module from the path supplied to the destination path supplied and throw an error if an issue is
  * encountered.
@@ -121,13 +104,3 @@ function copyModule(dependencyPath, destinationPath) {
     });
 }
 exports.copyModule = copyModule;
-function* walkDirectory(directoryPath) {
-    "use strict";
-    for (let filePath of fs["walkSync"](directoryPath)) {
-        yield {
-            fullPath: filePath,
-            contents: readFileSync(filePath)
-        };
-    }
-}
-exports.walkDirectory = walkDirectory;
