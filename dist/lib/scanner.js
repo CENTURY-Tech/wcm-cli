@@ -37,7 +37,7 @@ class DependencyGraph {
      */
     addDependency(dependency) {
         "use strict";
-        this.dependencies[dependency.name] = dependency;
+        this.dependencies[dependency.name.toLowerCase()] = dependency;
     }
     /**
      * Check to see whether or not a dependency with the supplied name is currently held within this instance of the
@@ -80,8 +80,11 @@ class DependencyGraph {
         })
             .forEach((dependency) => {
             dependencyGraphReadable["graph"][dependency.name] = dependency.dependencies
-                .map((dependency) => {
-                return this.dependencies[dependency].name;
+                .map((childDependency) => {
+                if (!this.dependencies[childDependency.toLowerCase()]) {
+                    throw `Missing dependency with the name ${childDependency} for ${dependency.name}`;
+                }
+                return this.dependencies[childDependency.toLowerCase()].name;
             })
                 .sort((a, b) => {
                 return a.toLowerCase() > b.toLowerCase() ? 1 : -1;
@@ -143,6 +146,7 @@ var moduleDependencies;
             const iterator = traverseModule(modulePath, dependencyGraph);
             logger.log("Inspecting \"%s\"", dependency);
             for (let dependency of iterator) {
+                logger.info("New dependency found with the name \"%s\"", dependency.name);
                 dependencyGraph.addDependency(dependency);
             }
         }
