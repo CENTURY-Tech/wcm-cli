@@ -54,7 +54,7 @@ export class DependencyGraph implements IDependencyGraph {
   public addDependency(dependency: IDependencyShorthand): void {
     "use strict";
 
-    this.dependencies[dependency.name] = dependency;
+    this.dependencies[dependency.name.toLowerCase()] = dependency;
   }
 
   /**
@@ -104,8 +104,12 @@ export class DependencyGraph implements IDependencyGraph {
       })
       .forEach((dependency: IDependencyShorthand): void => {
         dependencyGraphReadable["graph"][dependency.name] = dependency.dependencies
-          .map((dependency: string): string => {
-            return this.dependencies[dependency].name;
+          .map((childDependency: string): string => {
+            if (!this.dependencies[childDependency.toLowerCase()]) {
+              throw `Missing dependency with the name ${childDependency} for ${dependency.name}`;
+            }
+
+            return this.dependencies[childDependency.toLowerCase()].name;
           })
           .sort((a: string, b: string): number => {
             return a.toLowerCase() > b.toLowerCase() ? 1 : -1;
@@ -180,6 +184,8 @@ export namespace moduleDependencies {
       logger.log("Inspecting \"%s\"", dependency);
 
       for (let dependency of iterator) {
+        logger.info("New dependency found with the name \"%s\"", dependency.name);
+
         dependencyGraph.addDependency(dependency);
       }
     }
