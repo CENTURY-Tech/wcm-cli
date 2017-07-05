@@ -44,7 +44,7 @@ exports.warn = warn;
  * A basic function that will log an error message to the console.
  */
 function error(message, ...optionalParams) {
-    config_1.getLogLevel() <= 3 && console.log(chalk.red(message), ...optionalParams);
+    config_1.getLogLevel() <= 3 && console.log(chalk.red(`\n${message}\n`), ...optionalParams);
 }
 exports.error = error;
 function thread(openningMessage, ...optionalParams) {

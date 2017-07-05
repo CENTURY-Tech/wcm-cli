@@ -45,7 +45,7 @@ export function warn(message: string, ...optionalParams: any[]): void {
  * A basic function that will log an error message to the console.
  */
 export function error(message: string, ...optionalParams: any[]): void {
-  getLogLevel() <= 3 && console.log(chalk.red(message), ...optionalParams);
+  getLogLevel() <= 3 && console.log(chalk.red(`\n${message}\n`), ...optionalParams);
 }
 
 export function thread(openningMessage: string, ...optionalParams: any[]): IThreadLogger {

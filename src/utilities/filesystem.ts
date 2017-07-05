@@ -53,6 +53,13 @@ export function readFileSync(fullPath: string): string {
 /**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
  */
+export function readFileAsJson<T extends object>(fullPath: string): Promise<T> {
+  return readFile(path.resolve(fullPath)).then(JSON.parse);
+}
+
+/**
+ * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
+ */
 export function readFileAsJsonSync<T extends object>(fullPath: string): T {
   if (!fs.existsSync(fullPath)) {
     fileNotFound(fullPath).exit();
@@ -61,12 +68,11 @@ export function readFileAsJsonSync<T extends object>(fullPath: string): T {
   return fs.readJsonSync(fullPath);
 }
 
-/**
- * Write the supplied JSON to a new file at the path provided.
- */
-export async function writeJsonToFile(fullPath: string, json: object): Promise<void> {
-  await new Promise((resolve): void => {
-    void fs.writeJson(fullPath, json, (err: Error): void => {
+export async function writeToFile(fullPath: string, data: string): Promise<void> {
+  await ensureDirectoryExists(getPathParent(fullPath));
+
+  return new Promise<void>((resolve): void => {
+    void fs.writeFile(fullPath, data, (err: Error): void => {
       if (err) {
         upstreamDependencyFailure("fs-extra", err).exit();
       }
@@ -74,6 +80,13 @@ export async function writeJsonToFile(fullPath: string, json: object): Promise<v
       void resolve();
     });
   });
+}
+
+/**
+ * Write the supplied JSON to a new file at the path provided.
+ */
+export function writeJsonToFile(fullPath: string, json: object): Promise<void> {
+  return writeToFile(fullPath, JSON.stringify(json, null, 2));
 }
 
 /**
@@ -87,7 +100,7 @@ export function readBowerJsonSync(projectPath: string): bowerJSON.IBowerJSON {
  * Read and parse the release/module bower JSON file at the supplied path.
  */
 export function readBowerModuleJson(modulePath: string): Promise<bowerJSON.IBowerModuleJSON> {
-  return readFile(path.resolve(modulePath, ".bower.json")).then(JSON.parse);
+  return readFileAsJson(path.resolve(modulePath, ".bower.json"));
 }
 
 /**
@@ -98,27 +111,23 @@ export function readBowerModuleJsonSync(modulePath: string): bowerJSON.IBowerMod
 }
 
 export async function ensureDirectoryExists(dirPath: string): Promise<void> {
-  if (dirPath && !fs.existsSync(dirPath)) {
-    await ensureDirectoryExists(getPathParent(dirPath));
+  return new Promise<void>((resolve): void => {
+    fs.mkdirp(dirPath, (err) => {
+      if (err) {
+        upstreamDependencyFailure("fs-extra", err).exit();
+      }
 
-    return new Promise<void>((resolve): void => {
-      fs.mkdir(dirPath, (err) => {
-        if (err) {
-          upstreamDependencyFailure("fs-extra", err).exit();
-        }
-
-        void resolve();
-      })
+      void resolve();
     });
-  }
+  });
 }
 
 /**
  * Copy the directory from the path supplied to the destination path supplied and throw an error if an issue is
  * encountered.
  */
-export async function copy(sourcePath: string, outputPath: string): Promise<void> {
-  await new Promise((resolve): void => {
+export function copy(sourcePath: string, outputPath: string): Promise<void> {
+  return new Promise<void>((resolve): void => {
     void fs.copy(sourcePath, outputPath, (err: Error): void => {
       if (err) {
         upstreamDependencyFailure("fs-extra", err).exit();

@@ -56,6 +56,13 @@ exports.readFileSync = readFileSync;
 /**
  * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
  */
+function readFileAsJson(fullPath) {
+    return readFile(path.resolve(fullPath)).then(JSON.parse);
+}
+exports.readFileAsJson = readFileAsJson;
+/**
+ * Read and parse the file at the supplied path as JSON and throw an error if the file cannot be found.
+ */
 function readFileAsJsonSync(fullPath) {
     if (!fs.existsSync(fullPath)) {
         errors_1.fileNotFound(fullPath).exit();
@@ -63,13 +70,11 @@ function readFileAsJsonSync(fullPath) {
     return fs.readJsonSync(fullPath);
 }
 exports.readFileAsJsonSync = readFileAsJsonSync;
-/**
- * Write the supplied JSON to a new file at the path provided.
- */
-function writeJsonToFile(fullPath, json) {
+function writeToFile(fullPath, data) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield new Promise((resolve) => {
-            void fs.writeJson(fullPath, json, (err) => {
+        yield ensureDirectoryExists(getPathParent(fullPath));
+        return new Promise((resolve) => {
+            void fs.writeFile(fullPath, data, (err) => {
                 if (err) {
                     errors_1.upstreamDependencyFailure("fs-extra", err).exit();
                 }
@@ -77,6 +82,13 @@ function writeJsonToFile(fullPath, json) {
             });
         });
     });
+}
+exports.writeToFile = writeToFile;
+/**
+ * Write the supplied JSON to a new file at the path provided.
+ */
+function writeJsonToFile(fullPath, json) {
+    return writeToFile(fullPath, JSON.stringify(json, null, 2));
 }
 exports.writeJsonToFile = writeJsonToFile;
 /**
@@ -90,7 +102,7 @@ exports.readBowerJsonSync = readBowerJsonSync;
  * Read and parse the release/module bower JSON file at the supplied path.
  */
 function readBowerModuleJson(modulePath) {
-    return readFile(path.resolve(modulePath, ".bower.json")).then(JSON.parse);
+    return readFileAsJson(path.resolve(modulePath, ".bower.json"));
 }
 exports.readBowerModuleJson = readBowerModuleJson;
 /**
@@ -102,17 +114,14 @@ function readBowerModuleJsonSync(modulePath) {
 exports.readBowerModuleJsonSync = readBowerModuleJsonSync;
 function ensureDirectoryExists(dirPath) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (dirPath && !fs.existsSync(dirPath)) {
-            yield ensureDirectoryExists(getPathParent(dirPath));
-            return new Promise((resolve) => {
-                fs.mkdir(dirPath, (err) => {
-                    if (err) {
-                        errors_1.upstreamDependencyFailure("fs-extra", err).exit();
-                    }
-                    void resolve();
-                });
+        return new Promise((resolve) => {
+            fs.mkdirp(dirPath, (err) => {
+                if (err) {
+                    errors_1.upstreamDependencyFailure("fs-extra", err).exit();
+                }
+                void resolve();
             });
-        }
+        });
     });
 }
 exports.ensureDirectoryExists = ensureDirectoryExists;
@@ -121,14 +130,12 @@ exports.ensureDirectoryExists = ensureDirectoryExists;
  * encountered.
  */
 function copy(sourcePath, outputPath) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield new Promise((resolve) => {
-            void fs.copy(sourcePath, outputPath, (err) => {
-                if (err) {
-                    errors_1.upstreamDependencyFailure("fs-extra", err).exit();
-                }
-                void resolve();
-            });
+    return new Promise((resolve) => {
+        void fs.copy(sourcePath, outputPath, (err) => {
+            if (err) {
+                errors_1.upstreamDependencyFailure("fs-extra", err).exit();
+            }
+            void resolve();
         });
     });
 }

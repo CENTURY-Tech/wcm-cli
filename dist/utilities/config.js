@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * The CLI log level.
  */
 let logLevel;
+let debugEnabled;
 /**
  * The project path.
  */
@@ -22,6 +23,14 @@ function setLogLevel(level) {
     logLevel = level;
 }
 exports.setLogLevel = setLogLevel;
+function getDebugEnabled() {
+    return debugEnabled;
+}
+exports.getDebugEnabled = getDebugEnabled;
+function setDebugEnabled(enabled) {
+    debugEnabled = enabled;
+}
+exports.setDebugEnabled = setDebugEnabled;
 /**
  * Retrieve the project path.
  */

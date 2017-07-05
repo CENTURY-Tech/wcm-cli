@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "description": "",
   "bin": {
-    "wcm-cli": "./dist/index.js"
+    "wcm": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && npm i . -g",
+    "build": "tsc",
     "lint": "tslint --project . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

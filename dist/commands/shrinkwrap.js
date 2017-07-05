@@ -4,26 +4,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments)).next());
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-/**
- * Dependencies
- */
+Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const filesystem_1 = require("../utilities/filesystem");
-const scanner_1 = require("../utilities/scanner");
-function exec(projectPath, outDestination) {
-    "use strict";
+function exec(projectPath, uriPrefix) {
     return __awaiter(this, void 0, void 0, function* () {
-        /**
-         * A verbose dependency graph to be used in the shrinkwrapping process. This graph contains all of the required
-         * modules listed within this project and recursively within it's dependencies.
-         */
-        const dependencyGraph = scanner_1.moduleDependencies.resolveProjectDependencies(path.normalize(projectPath));
-        // await dependencyGraph.copyModules(outDestination);
-        yield filesystem_1.writeJsonToFile(path.join(projectPath, "manifest.json"), dependencyGraph.toReadable());
-        console.log("Done");
+        const componentsPath = path.resolve(projectPath, "web_components");
+        const componentsManifest = {
+            uri: `${uriPrefix}/<name>/<version>/<lookup>`,
+            shrinkwrap: []
+        };
+        for (const component of yield filesystem_1.readDir(componentsPath)) {
+            componentsManifest.shrinkwrap.push({
+                name: component,
+                version: (yield filesystem_1.readDir(path.resolve(componentsPath, component)))[0]
+            });
+        }
+        return filesystem_1.writeJsonToFile(path.resolve(projectPath, "wcm-shrinkwrap.json"), componentsManifest);
     });
 }
 exports.exec = exec;

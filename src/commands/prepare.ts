@@ -4,121 +4,180 @@
 import { Writable } from "stream";
 import * as fs from "fs";
 import * as readline from "readline";
-import * as cheerio from "cheerio";
 import * as path from "path";
+import { fileNotFound } from "../utilities/errors";
 import { warn } from "../utilities/logger";
-import { copy, ensureDirectoryExists, readBowerModuleJson, readDir } from "../utilities/filesystem";
+import { copy, ensureDirectoryExists, readBowerModuleJson, readDir, readFileAsJson, writeToFile } from "../utilities/filesystem";
 
-export async function exec(projectPath: string): Promise<any> {
-  const dependenciesPath = path.join(projectPath, "bower_components");
-  const outputPath = path.join(projectPath, "web_components");
+interface WCMConfig {
+  main: string;
+  version: string;
+  componentOptions: {
+    rootDir: string;
+    outDir: string;
+  };
+  packageManager: PackageManager;
+}
+
+type PackageManager = "bower" | "npm"
+
+export async function exec(projectPath: string, optimise: boolean): Promise<any> {
+  const wcmConfig = await readFileAsJson<WCMConfig>(path.resolve(projectPath, "wcm.json"));
+  const rootDir = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
+  const outDir = path.resolve(projectPath, wcmConfig.componentOptions.outDir);
+
+  await processFile(rootDir, outDir, wcmConfig.main, []);
+
+  const sourcePath = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
+  const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
+  const outputPath = path.resolve(projectPath, "web_components");
 
   const processedPaths = []
 
   for (const dependency of await readDir(dependenciesPath)) {
-    const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
     const sourceDirectory = path.join(dependenciesPath, dependency);
-    const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
 
-    if (!bowerJson.main) {
-      warn("'%s' has not declared an entry file, skipping", dependency);
+    if (!fs.statSync(sourceDirectory).isDirectory()) {
       continue;
     }
 
-    for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
-      if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
-        warn("'%s' has an entry file '%s' that does not exist, skipping", dependency, entryPath)
+    const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
+    const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
+
+    if (optimise) {
+      if (!bowerJson.main) {
+        warn("'%s' has not declared an entry file, skipping optimisation", dependency);
+        await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
         continue;
       }
 
-      await processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
+      for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
+        if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
+          warn("'%s' has an entry file '%s' that does not exist, skipping optimisation", dependency, entryPath);
+
+          await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+          break;
+        }
+
+        await processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
+      }
+    } else {
+      await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
     }
   }
 }
 
-async function processFile(sourceDir: string, outputDir: string, entryPath: string, processedPaths: string[]): Promise<void> {
-  if (processedPaths.includes(path.resolve(sourceDir, entryPath))) {
+async function processDir(sourceDir: string, outputDir: string, dirPath: string, processedPaths: string[]): Promise<void> {
+  const files = fs.readdirSync(path.join(sourceDir, dirPath));
+
+  files.forEach(async (file) => {
+    if (fs.statSync(path.join(sourceDir, dirPath, file)).isDirectory()) {
+      await processDir(sourceDir, outputDir, path.join(dirPath, file), processedPaths);
+    } else {
+      await processFile(path.resolve(sourceDir), path.resolve(outputDir), path.join(dirPath, file), processedPaths);
+    }
+  });
+}
+
+async function processFile(sourceDir: string, outputDir: string, filePath: string, processedPaths: string[]): Promise<void> {
+  if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
     return Promise.resolve();
   } else {
-    processedPaths.push(path.resolve(sourceDir, entryPath));
+    processedPaths.push(path.resolve(sourceDir, filePath));
   }
 
-  if (path.extname(entryPath) === ".html") {
-    await ensureDirectoryExists(path.dirname(path.join(outputDir, entryPath)));
+  if (!fs.existsSync(path.join(sourceDir, filePath))) {
+    return fileNotFound(path.join(sourceDir, filePath)).handled();
+  }
 
-    return new Promise<void>((resolve): void => {
-      const input = fs.createReadStream(path.join(sourceDir, entryPath));
-      const output = fs.createWriteStream(path.join(outputDir, entryPath));
-      const subfiles = [];
+  await ensureDirectoryExists(path.dirname(path.join(outputDir, filePath)));
 
-      let inScript = 0;
-      let inComment = 0;
-      let lineNumber = 0;
+  switch (path.extname(filePath)) {
+    case ".html":
+      return new Promise<void>((resolve): void => {
+        const input = fs.createReadStream(path.join(sourceDir, filePath));
+        const output = fs.createWriteStream(path.join(outputDir, filePath));
+        const subfiles = [];
 
-      readline.createInterface({ input })
-        .on("line", async (line: string): Promise<any> => {
-          lineNumber++;
+        let inScript = 0;
+        let inComment = 0;
+        let lineNumber = 0;
 
-          if (!inScript) {
-            /<!--/.test(line) && inComment++;
-            /-->/.test(line) && inComment--;
-          }
+        readline.createInterface({ input })
+          .on("line", async (line: string): Promise<any> => {
+            lineNumber++;
 
-          if (!inComment) {
-            /<script>/.test(line) && inScript++;
-            /<\/script>/.test(line) && inScript--;
-          }
+            if (!inScript) {
+              /<!--/.test(line) && inComment++;
+              /-->/.test(line) && inComment--;
+            }
 
-          if (!inScript && !inComment) {
-            if (/<link .*>/.test(line)) {
-              const [, href] = /href="([^"]*)"/.exec(line);
-              const { dependency, lookup } = getMetadata(href);
+            if (!inComment) {
+              /<script>?/.test(line) && inScript++;
+              /<\/script>/.test(line) && inScript--;
+            }
 
-              console.log(href)
+            if (!inScript && !inComment) {
+              if (/<link .*>/.test(line)) {
+                const [, href] = /href="([^"]*)"/.exec(line);
 
-              if (!path.resolve(path.dirname(path.join(sourceDir, entryPath)), href).includes(sourceDir)) {
-                try {
-                  line = `<wcm-link type="${/rel="([A-z]*)"/.exec(line)[1]}" for="${dependency}" lookup="${lookup}"></wcm-link>`;
-                } catch (err) {
-                  warn("'%s' has no rel attribute in file '%s' at line %s, skipping", input.path, entryPath, lineNumber);
+                if (!/http(s)?:\/\//.test(href) && !path.resolve(path.dirname(path.join(sourceDir, filePath)), href).includes(sourceDir)) {
+                  try {
+                    line = `<wcm-link rel="${/rel="([A-z]*)"/.exec(line)[1]}" for="${getDependencyName(href)}" lookup="${getDependencyLookup(href)}"></wcm-link>`;
+                  } catch (err) {
+                    warn("'%s' has no rel attribute in file '%s' at line %s, skipping", input.path, filePath, lineNumber);
+                  }
+                } else {
+                  subfiles.push(href);
                 }
-              } else if (!/http(s)?:\/\//.test(href)) {
-                subfiles.push(href);
-              }
-            } else if (/<script src="([^"]*)"><\/script>/.test(line)) {
-              const [, src] = /src="([^"]*)"/.exec(line);
-              const { dependency, lookup } = getMetadata(src);
+              } else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
+                const [, src] = /src="([^"]*)"/.exec(line);
 
-              if (!path.resolve(path.dirname(path.join(sourceDir, entryPath)), src).includes(sourceDir)) {
-                line = `<wcm-link type="script" for="${dependency}" lookup="${lookup}"></wcm-link>`;
-              } else if (!/http(s)?:\/\//.test(src)) {
-                subfiles.push(src);
+                if (!/http(s)?:\/\//.test(src)) {
+                  if (!path.resolve(path.dirname(path.join(sourceDir, filePath)), src).includes(sourceDir)) {
+                    line = `<wcm-script for="${getDependencyName(src)}" lookup="${getDependencyLookup(src)}"></wcm-script>`;
+                  } else {
+                    line = `<wcm-script lookup="${src}"></wcm-script>`;
+                  }
+                }
               }
             }
-          }
 
-          output.write(`${line}\n`);
-        })
-        .on("close", async () => {
-          for (const href of subfiles) {
-            await processFile(sourceDir, outputDir, path.join(path.dirname(entryPath), href), processedPaths)
-          }
+            output.write(`${line}\n`);
+          })
+          .on("close", async () => {
+            for (const href of subfiles) {
+              await processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
+            }
 
-          resolve();
-        });
-    });
-  } else {
-    return copy(path.join(sourceDir, entryPath), path.join(outputDir, entryPath));
+            resolve();
+          });
+      });
+
+    case ".js":
+      const fileName = path.join(outputDir, filePath.replace(".js", ".html"));
+      if (!fs.existsSync(fileName)) {
+        await writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script lookup="${filePath}"></wcm-script>`);
+      }
+
+    default:
+      return copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
   }
 
 }
-
 
 function getHref(tag: string): string {
   return /(href|src)="(.*)"/.exec(tag)[2];
 }
 
-function getMetadata(href: string): { dependency: string; lookup: string; } {
-  const [, dependency, lookup] = /\.\.\/([^./]*)\/(.*)/.exec(href);
-  return { dependency, lookup }
+function resolvePackageManagerDirectory(packageManager: PackageManager): string {
+  return ["bower_components", "node_modules"][["bower", "npm"].indexOf(packageManager)]
+}
+
+function getDependencyName(url: string): string {
+  return /([^./]+)/.exec(url)[0];
+}
+
+function getDependencyLookup(url: string): string {
+  return /[^./]+\/(.*)/.exec(url)[1];
 }

@@ -3,6 +3,8 @@
  */
 let logLevel: number;
 
+let debugEnabled: boolean;
+
 /**
  * The project path.
  */
@@ -20,6 +22,14 @@ export function getLogLevel(): number {
  */
 export function setLogLevel(level: number): void {
   logLevel = level;
+}
+
+export function getDebugEnabled(): boolean {
+  return debugEnabled;
+}
+
+export function setDebugEnabled(enabled: boolean): void {
+  debugEnabled = enabled;
 }
 
 /**
