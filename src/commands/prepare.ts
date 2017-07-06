@@ -121,7 +121,7 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
               if (/<link .*>/.test(line)) {
                 const [, href] = /href="([^"]*)"/.exec(line);
 
-                if (!/http(s)?:\/\//.test(href) && !path.resolve(path.dirname(path.join(sourceDir, filePath)), href).includes(sourceDir)) {
+                if (!/http(s)?:\/\//.test(href) && !path.resolve(path.dirname(path.join(sourceDir, filePath)), href).includes(sourceDir + path.sep)) {
                   try {
                     line = `<wcm-link rel="${/rel="([A-z]*)"/.exec(line)[1]}" for="${getDependencyName(href)}" lookup="${getDependencyLookup(href)}"></wcm-link>`;
                   } catch (err) {

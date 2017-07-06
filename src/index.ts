@@ -9,7 +9,7 @@ import * as packageJSON from "gist-package-json";
 import * as path from "path";
 import { exec as prepareExec } from "./commands/prepare";
 import { exec as shrinkwrapExec } from "./commands/shrinkwrap";
-import { setLogLevel, setDebugEnabled } from "./utilities/config";
+import { setLogLevel, setLogHandledErrors, setDebugEnabled } from "./utilities/config";
 
 const pkg: packageJSON.IPackageJSON = fs.readFileSync(path.resolve(__dirname, "..", "package.json")) as any;
 
@@ -17,6 +17,7 @@ interface Options extends program.CommandOptions {
   parent: {
     path: string;
     logLevel: string;
+    logHandledErrors: boolean;
     debugEnabled: boolean;
   };
   optimisation?: boolean;
@@ -27,7 +28,8 @@ program
   .version(pkg.version)
   .option("-p, --path          <path> ", "specify a custom path to your project", process.cwd())
   .option("-L, --log-level     <level>", "specify the logging level of the CLI", "warn")
-  .option("-D, --debug-enabled        ", "toggle useful debugging information such as stack traces", false);
+  .option("-H, --log-handled-errors   ", "log errors that have been quietly handled", false)
+  .option("-D, --debug-enabled        ", "log useful debugging information such as stack traces", false);
 
 /**
  * wcm-cli-prepare
@@ -58,6 +60,7 @@ program.parse(process.argv);
 
 async function setProgramDefaults(opts: Options): Promise<Options> {
   setLogLevel(["debug", "info", "warn", "error"].indexOf(opts.parent.logLevel.toLowerCase()));
+  setLogHandledErrors(opts.parent.logHandledErrors);
   setDebugEnabled(opts.parent.debugEnabled);
 
   return opts;

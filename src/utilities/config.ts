@@ -3,6 +3,8 @@
  */
 let logLevel: number;
 
+let logHandledErrors: boolean;
+
 let debugEnabled: boolean;
 
 /**
@@ -22,6 +24,14 @@ export function getLogLevel(): number {
  */
 export function setLogLevel(level: number): void {
   logLevel = level;
+}
+
+export function getLogHandledErrors(): boolean {
+  return logHandledErrors;
+}
+
+export function setLogHandledErrors(enabled: boolean): void {
+  logHandledErrors = enabled;
 }
 
 export function getDebugEnabled(): boolean {

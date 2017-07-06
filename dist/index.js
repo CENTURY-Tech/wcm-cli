@@ -20,7 +20,8 @@ program
     .version(pkg.version)
     .option("-p, --path          <path> ", "specify a custom path to your project", process.cwd())
     .option("-L, --log-level     <level>", "specify the logging level of the CLI", "warn")
-    .option("-D, --debug-enabled        ", "toggle useful debugging information such as stack traces", false);
+    .option("-H, --log-handled-errors   ", "log errors that have been quietly handled", false)
+    .option("-D, --debug-enabled        ", "log useful debugging information such as stack traces", false);
 /**
  * wcm-cli-prepare
  */
@@ -48,6 +49,7 @@ program.parse(process.argv);
 function setProgramDefaults(opts) {
     return __awaiter(this, void 0, void 0, function* () {
         config_1.setLogLevel(["debug", "info", "warn", "error"].indexOf(opts.parent.logLevel.toLowerCase()));
+        config_1.setLogHandledErrors(opts.parent.logHandledErrors);
         config_1.setDebugEnabled(opts.parent.debugEnabled);
         return opts;
     });

@@ -16,11 +16,13 @@ class ExitableError extends Error {
         return process.exit(1);
     }
     handled() {
-        if (config_1.getDebugEnabled()) {
-            logger_1.error('Handled: %s\n\n%s', this.message, config_1.getDebugEnabled() && this.stack);
-        }
-        else {
-            logger_1.error('Handled: %s', this.message);
+        if (config_1.getLogHandledErrors()) {
+            if (config_1.getDebugEnabled()) {
+                logger_1.error('Handled: %s\n\n%s', this.message, config_1.getDebugEnabled() && this.stack);
+            }
+            else {
+                logger_1.error('Handled: %s', this.message);
+            }
         }
     }
 }

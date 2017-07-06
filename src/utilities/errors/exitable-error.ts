@@ -1,5 +1,5 @@
 import { error } from "../logger";
-import { getDebugEnabled } from "../config"
+import { getLogHandledErrors, getDebugEnabled } from "../config"
 
 export class ExitableError extends Error {
 
@@ -17,10 +17,12 @@ export class ExitableError extends Error {
   }
 
   public handled(): void {
-    if (getDebugEnabled()) {
-      error('Handled: %s\n\n%s', this.message, getDebugEnabled() && this.stack);
-    } else {
-      error('Handled: %s', this.message);
+    if (getLogHandledErrors()) {
+      if (getDebugEnabled()) {
+        error('Handled: %s\n\n%s', this.message, getDebugEnabled() && this.stack);
+      } else {
+        error('Handled: %s', this.message);
+      }
     }
   }
 
