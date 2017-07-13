@@ -72,6 +72,9 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
             return Promise.resolve();
         }
         else {
+            if (!sourceDir || !filePath) {
+                console.log(sourceDir, filePath);
+            }
             processedPaths.push(path.resolve(sourceDir, filePath));
         }
         if (!fs.existsSync(path.join(sourceDir, filePath))) {
@@ -87,47 +90,79 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
                     let inScript = 0;
                     let inComment = 0;
                     let lineNumber = 0;
+                    const inlineJs = [];
                     readline.createInterface({ input })
-                        .on("line", (line) => __awaiter(this, void 0, void 0, function* () {
+                        .on("line", (_line) => {
                         lineNumber++;
-                        if (!inScript) {
-                            /<!--/.test(line) && inComment++;
-                            /-->/.test(line) && inComment--;
-                        }
-                        if (!inComment) {
-                            /<script>?/.test(line) && inScript++;
-                            /<\/script>/.test(line) && inScript--;
-                        }
-                        if (!inScript && !inComment) {
-                            if (/<link .*>/.test(line)) {
-                                const [, href] = /href="([^"]*)"/.exec(line);
-                                if (!/http(s)?:\/\//.test(href) && !path.resolve(path.dirname(path.join(sourceDir, filePath)), href).includes(sourceDir + path.sep)) {
+                        (inScript
+                            ? _line
+                                .replace(/<\/script>/g, "\n$&")
+                            : _line
+                                .replace(/-->|<script>/g, "$&\n"))
+                            .split("\n")
+                            .forEach((line) => {
+                            if (!inScript) {
+                                /<!--/.test(line) && inComment++;
+                                /-->/.test(line) && inComment--;
+                            }
+                            if (!inComment) {
+                                /<script>?/.test(line) && inScript++;
+                                /<\/script>/.test(line) && inScript--;
+                            }
+                            if (!inScript && !inComment) {
+                                if (/<link .*>/.test(line)) {
+                                    let href;
+                                    let rel;
                                     try {
-                                        line = `<wcm-link rel="${/rel="([A-z]*)"/.exec(line)[1]}" for="${getDependencyName(href)}" lookup="${getDependencyLookup(href)}"></wcm-link>`;
+                                        [, href] = /href="([^"]*)"/.exec(line);
+                                        [, rel] = /rel="([A-z]*)"/.exec(line);
                                     }
                                     catch (err) {
-                                        logger_1.warn("'%s' has no rel attribute in file '%s' at line %s, skipping", input.path, filePath, lineNumber);
+                                        logger_1.warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
+                                    }
+                                    if (!/http(s)?:\/\//.test(href)) {
+                                        if (isRelative(sourceDir, filePath, href)) {
+                                            subfiles.push(href);
+                                        }
+                                        else {
+                                            line = line.replace(/<link .[^>]*>/, `<wcm-link rel="${rel}" for="${getDependencyName(href)}" path="${getDependencyLookup(href)}"></wcm-link>`);
+                                        }
                                     }
                                 }
-                                else {
-                                    subfiles.push(href);
+                                else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
+                                    let src;
+                                    try {
+                                        [, src] = /src="([^"]*)"/.exec(line);
+                                    }
+                                    catch (err) {
+                                        logger_1.warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
+                                    }
+                                    if (!/http(s)?:\/\//.test(src)) {
+                                        if (isRelative(sourceDir, filePath, src)) {
+                                            line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script path="${src}"></wcm-script>`);
+                                        }
+                                        else {
+                                            line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script for="${getDependencyName(src)}" path="${getDependencyLookup(src)}"></wcm-script>`);
+                                        }
+                                    }
                                 }
                             }
-                            else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
-                                const [, src] = /src="([^"]*)"/.exec(line);
-                                if (!/http(s)?:\/\//.test(src)) {
-                                    if (!path.resolve(path.dirname(path.join(sourceDir, filePath)), src).includes(sourceDir)) {
-                                        line = `<wcm-script for="${getDependencyName(src)}" lookup="${getDependencyLookup(src)}"></wcm-script>`;
-                                    }
-                                    else {
-                                        line = `<wcm-script lookup="${src}"></wcm-script>`;
-                                    }
-                                }
+                            if (inScript) {
+                                !/<script>?/.test(line) && inlineJs.push(line);
                             }
-                        }
-                        output.write(`${line}\n`);
-                    }))
+                            else {
+                                !/^<\/script>/.test(line) && output.write(`${line}\n`);
+                            }
+                        });
+                    })
                         .on("close", () => __awaiter(this, void 0, void 0, function* () {
+                        if (inlineJs.length) {
+                            let jsOutput = fs.createWriteStream(path.join(outputDir, filePath).replace(".html", ".js"));
+                            for (const line of inlineJs) {
+                                jsOutput.write(`${line}\n`);
+                            }
+                            output.write(`<wcm-script path="${path.basename(filePath).replace(".html", ".js")}"></wcm-script>\n`);
+                        }
                         for (const href of subfiles) {
                             yield processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
                         }
@@ -137,12 +172,20 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
             case ".js":
                 const fileName = path.join(outputDir, filePath.replace(".js", ".html"));
                 if (!fs.existsSync(fileName)) {
-                    yield filesystem_1.writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script lookup="${filePath}"></wcm-script>`);
+                    yield filesystem_1.writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script path="${filePath}"></wcm-script>`);
                 }
             default:
                 return filesystem_1.copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
         }
     });
+}
+function isRelative(sourcePath, relPathA, relPathB) {
+    try {
+        return path.resolve(path.dirname(path.join(sourcePath, relPathA)), relPathB).includes(sourcePath + path.sep);
+    }
+    catch (err) {
+        logger_1.warn("Unable to determine relitivity from '%s' between '%s' and '%s'", sourcePath, relPathA, relPathB);
+    }
 }
 function getHref(tag) {
     return /(href|src)="(.*)"/.exec(tag)[2];
@@ -154,5 +197,10 @@ function getDependencyName(url) {
     return /([^./]+)/.exec(url)[0];
 }
 function getDependencyLookup(url) {
-    return /[^./]+\/(.*)/.exec(url)[1];
+    try {
+        return /[^./]+\/(.*)/.exec(url)[1];
+    }
+    catch (err) {
+        logger_1.warn("Error whilst retrieving lookup from URL '%s'", url);
+    }
 }

@@ -9,7 +9,7 @@ import * as packageJSON from "gist-package-json";
 import * as path from "path";
 import { exec as prepareExec } from "./commands/prepare";
 import { exec as shrinkwrapExec } from "./commands/shrinkwrap";
-import { setLogLevel, setLogHandledErrors, setDebugEnabled } from "./utilities/config";
+import { setDebugEnabled, setLogHandledErrors, setLogLevel } from "./utilities/config";
 
 const pkg: packageJSON.IPackageJSON = fs.readFileSync(path.resolve(__dirname, "..", "package.json")) as any;
 

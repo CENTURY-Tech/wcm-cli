@@ -142,6 +142,6 @@ function getPathParent(pathname: string): string {
   return compose<string, string[], string[], string>(
     join(path.sep),
     init,
-    split(path.sep)
-  )(pathname)
+    split(path.sep),
+  )(pathname);
 }

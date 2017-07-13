@@ -1,5 +1,5 @@
-import { error } from "../logger";
-import { getLogHandledErrors, getDebugEnabled } from "../config"
+import { getDebugEnabled, getLogHandledErrors } from "../config"
+import { error } from "../logger";;
 
 export class ExitableError extends Error {
 
@@ -8,9 +8,9 @@ export class ExitableError extends Error {
    */
   public exit(): never {
     if (getDebugEnabled()) {
-      error('Fatal: %s\n\n%s', this.message, this.stack);
+      error("Fatal: %s\n\n%s", this.message, this.stack);
     } else {
-      error('Fatal: %s', this.message);
+      error("Fatal: %s", this.message);
     }
 
     return process.exit(1) as never;
@@ -19,9 +19,9 @@ export class ExitableError extends Error {
   public handled(): void {
     if (getLogHandledErrors()) {
       if (getDebugEnabled()) {
-        error('Handled: %s\n\n%s', this.message, getDebugEnabled() && this.stack);
+        error("Handled: %s\n\n%s", this.message, getDebugEnabled() && this.stack);
       } else {
-        error('Handled: %s', this.message);
+        error("Handled: %s", this.message);
       }
     }
   }

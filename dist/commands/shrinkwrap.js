@@ -14,7 +14,7 @@ function exec(projectPath, uriPrefix) {
     return __awaiter(this, void 0, void 0, function* () {
         const componentsPath = path.resolve(projectPath, "web_components");
         const componentsManifest = {
-            uri: `${uriPrefix}/<name>/<version>/<lookup>`,
+            uri: `${uriPrefix}/<name>/<version>/<path>`,
             shrinkwrap: []
         };
         for (const component of yield filesystem_1.readDir(componentsPath)) {

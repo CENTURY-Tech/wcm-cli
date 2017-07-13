@@ -1,12 +1,12 @@
 /**
  * Dependencies
  */
-import { Writable } from "stream";
 import * as fs from "fs";
-import * as readline from "readline";
 import * as path from "path";
-import { warn } from "../utilities/logger";
+import * as readline from "readline";
+import { Writable } from "stream";
 import { readDir, writeJsonToFile } from "../utilities/filesystem";
+import { warn } from "../utilities/logger";
 
 /**
  * A representation of the required keys expected to be present in the Manifest JSON.
@@ -29,14 +29,14 @@ export interface Dependency {
 export async function exec(projectPath: string, uriPrefix: string): Promise<any> {
   const componentsPath = path.resolve(projectPath, "web_components");
   const componentsManifest: Manifest = {
-    uri: `${uriPrefix}/<name>/<version>/<lookup>`,
-    shrinkwrap: []
+    uri: `${uriPrefix}/<name>/<version>/<path>`,
+    shrinkwrap: [],
   };
 
   for (const component of await readDir(componentsPath)) {
     componentsManifest.shrinkwrap.push({
       name: component,
-      version: (await readDir(path.resolve(componentsPath, component)))[0]
+      version: (await readDir(path.resolve(componentsPath, component)))[0],
     });
   }
 

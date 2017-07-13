@@ -1,13 +1,14 @@
 /**
  * Dependencies
  */
-import { Writable } from "stream";
 import * as fs from "fs";
-import * as readline from "readline";
 import * as path from "path";
+import * as readline from "readline";
+import { Writable } from "stream";
+import * as stream from "stream";
 import { fileNotFound } from "../utilities/errors";
-import { warn } from "../utilities/logger";
 import { copy, ensureDirectoryExists, readBowerModuleJson, readDir, readFileAsJson, writeToFile } from "../utilities/filesystem";
+import { warn } from "../utilities/logger";
 
 interface WCMConfig {
   main: string;
@@ -19,7 +20,7 @@ interface WCMConfig {
   packageManager: PackageManager;
 }
 
-type PackageManager = "bower" | "npm"
+type PackageManager = "bower" | "npm";
 
 export async function exec(projectPath: string, optimise: boolean): Promise<any> {
   const wcmConfig = await readFileAsJson<WCMConfig>(path.resolve(projectPath, "wcm.json"));
@@ -32,7 +33,7 @@ export async function exec(projectPath: string, optimise: boolean): Promise<any>
   const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
   const outputPath = path.resolve(projectPath, "web_components");
 
-  const processedPaths = []
+  const processedPaths = [];
 
   for (const dependency of await readDir(dependenciesPath)) {
     const sourceDirectory = path.join(dependenciesPath, dependency);
@@ -83,6 +84,9 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
   if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
     return Promise.resolve();
   } else {
+    if (!sourceDir || !filePath) {
+      console.log(sourceDir, filePath);
+    }
     processedPaths.push(path.resolve(sourceDir, filePath));
   }
 
@@ -103,49 +107,85 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
         let inComment = 0;
         let lineNumber = 0;
 
+        const inlineJs = [];
+
         readline.createInterface({ input })
-          .on("line", async (line: string): Promise<any> => {
+          .on("line", (_line: string): void => {
             lineNumber++;
 
-            if (!inScript) {
-              /<!--/.test(line) && inComment++;
-              /-->/.test(line) && inComment--;
-            }
+            (inScript
+              ? _line
+                .replace(/<\/script>/g, "\n$&")
+              : _line
+                .replace(/-->|<script>/g, "$&\n"))
+              .split("\n")
+              .forEach((line) => {
+                if (!inScript) {
+                  /<!--/.test(line) && inComment++;
+                  /-->/.test(line) && inComment--;
+                }
 
-            if (!inComment) {
-              /<script>?/.test(line) && inScript++;
-              /<\/script>/.test(line) && inScript--;
-            }
+                if (!inComment) {
+                  /<script>?/.test(line) && inScript++;
+                  /<\/script>/.test(line) && inScript--;
+                }
 
-            if (!inScript && !inComment) {
-              if (/<link .*>/.test(line)) {
-                const [, href] = /href="([^"]*)"/.exec(line);
+                if (!inScript && !inComment) {
+                  if (/<link .*>/.test(line)) {
+                    let href: string;
+                    let rel: string;
 
-                if (!/http(s)?:\/\//.test(href) && !path.resolve(path.dirname(path.join(sourceDir, filePath)), href).includes(sourceDir + path.sep)) {
-                  try {
-                    line = `<wcm-link rel="${/rel="([A-z]*)"/.exec(line)[1]}" for="${getDependencyName(href)}" lookup="${getDependencyLookup(href)}"></wcm-link>`;
-                  } catch (err) {
-                    warn("'%s' has no rel attribute in file '%s' at line %s, skipping", input.path, filePath, lineNumber);
+                    try {
+                      [, href] = /href="([^"]*)"/.exec(line);
+                      [, rel] = /rel="([A-z]*)"/.exec(line);
+                    } catch (err) {
+                      warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
+                    }
+
+                    if (!/http(s)?:\/\//.test(href)) {
+                      if (isRelative(sourceDir, filePath, href)) {
+                        subfiles.push(href);
+                      } else {
+                        line = line.replace(/<link .[^>]*>/, `<wcm-link rel="${rel}" for="${getDependencyName(href)}" path="${getDependencyLookup(href)}"></wcm-link>`);
+                      }
+                    }
+                  } else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
+                    let src: string;
+
+                    try {
+                      [, src] = /src="([^"]*)"/.exec(line);
+                    } catch (err) {
+                      warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
+                    }
+
+                    if (!/http(s)?:\/\//.test(src)) {
+                      if (isRelative(sourceDir, filePath, src)) {
+                        line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script path="${src}"></wcm-script>`);
+                      } else {
+                        line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script for="${getDependencyName(src)}" path="${getDependencyLookup(src)}"></wcm-script>`);
+                      }
+                    }
                   }
+                }
+
+                if (inScript) {
+                  !/<script>?/.test(line) && inlineJs.push(line);
                 } else {
-                  subfiles.push(href);
+                  !/^<\/script>/.test(line) && output.write(`${line}\n`);
                 }
-              } else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
-                const [, src] = /src="([^"]*)"/.exec(line);
-
-                if (!/http(s)?:\/\//.test(src)) {
-                  if (!path.resolve(path.dirname(path.join(sourceDir, filePath)), src).includes(sourceDir)) {
-                    line = `<wcm-script for="${getDependencyName(src)}" lookup="${getDependencyLookup(src)}"></wcm-script>`;
-                  } else {
-                    line = `<wcm-script lookup="${src}"></wcm-script>`;
-                  }
-                }
-              }
-            }
-
-            output.write(`${line}\n`);
+              });
           })
           .on("close", async () => {
+            if (inlineJs.length) {
+              const jsOutput = fs.createWriteStream(path.join(outputDir, filePath).replace(".html", ".js"));
+
+              for (const line of inlineJs) {
+                jsOutput.write(`${line}\n`);
+              }
+
+              output.write(`<wcm-script path="${path.basename(filePath).replace(".html", ".js")}"></wcm-script>\n;`)
+            }
+
             for (const href of subfiles) {
               await processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
             }
@@ -157,7 +197,7 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
     case ".js":
       const fileName = path.join(outputDir, filePath.replace(".js", ".html"));
       if (!fs.existsSync(fileName)) {
-        await writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script lookup="${filePath}"></wcm-script>`);
+        await writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script path="${filePath}"></wcm-script>`);
       }
 
     default:
@@ -166,12 +206,20 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
 
 }
 
+function isRelative(sourcePath: string, relPathA: string, relPathB: string): boolean {
+  try {
+    return path.resolve(path.dirname(path.join(sourcePath, relPathA)), relPathB).includes(sourcePath + path.sep);
+  } catch (err) {
+    warn("Unable to determine relitivity from '%s' between '%s' and '%s'", sourcePath, relPathA, relPathB);
+  }
+}
+
 function getHref(tag: string): string {
   return /(href|src)="(.*)"/.exec(tag)[2];
 }
 
 function resolvePackageManagerDirectory(packageManager: PackageManager): string {
-  return ["bower_components", "node_modules"][["bower", "npm"].indexOf(packageManager)]
+  return ["bower_components", "node_modules"][["bower", "npm"].indexOf(packageManager;)]
 }
 
 function getDependencyName(url: string): string {
@@ -179,5 +227,9 @@ function getDependencyName(url: string): string {
 }
 
 function getDependencyLookup(url: string): string {
-  return /[^./]+\/(.*)/.exec(url)[1];
+  try {
+    return /[^./]+\/(.*)/.exec(url)[1];
+  } catch (err) {
+    warn("Error whilst retrieving lookup from URL '%s'", url);
+  }
 }
