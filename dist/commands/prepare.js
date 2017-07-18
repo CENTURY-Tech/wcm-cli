@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * Dependencies
  */
 const cheerio = require("cheerio");
-const fs = require("fs");
+const fs = require("fs-extra");
 const glob = require("glob");
 const path = require("path");
 const ramda_1 = require("ramda");
@@ -40,6 +40,7 @@ function exec(projectPath, optimise) {
             }
             const bowerJson = yield filesystem_1.readBowerModuleJson(path.join(dependenciesPath, dependency));
             const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
+            fs.removeSync(outputDirectory);
             if (optimise) {
                 if (!bowerJson.main) {
                     logger_1.warn("'%s' has not declared an entry file, skipping optimisation", dependency);
@@ -93,12 +94,16 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
                     .then((content) => {
                     const $ = cheerio.load(content);
                     return Promise.all([
-                        Promise.all($("link").not("[wcm-ignore]").toArray().map((link) => processLinkElem($, link))),
+                        Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map((link) => processLinkElem($, link))),
                         Promise.all($("script").not("[wcm-ignore]").toArray().map((script) => processScriptElem($, script)))
                             .then(ramda_1.compose(ramda_1.reject(ramda_1.isNil), ramda_1.defaultTo([])))
                             .then((scripts) => {
                             if (scripts.length) {
-                                const jsFileName = filePath.replace(".html", ".js");
+                                let i = 0;
+                                let jsFileName = filePath.replace(".html", ".js");
+                                while (fs.existsSync(path.join(sourceDir, jsFileName))) {
+                                    jsFileName = jsFileName.replace(".js", `_${++i}.js`);
+                                }
                                 $.root()
                                     .append($("<wcm-script></wcm-script>")
                                     .attr("path", path.basename(jsFileName)));
@@ -110,11 +115,6 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
                         return filesystem_1.writeToFile(path.join(outputDir, filePath), $.html());
                     });
                 });
-            case ".js":
-                const htmlFileName = path.join(outputDir, filePath.replace(".js", ".html"));
-                if (!fs.existsSync(htmlFileName)) {
-                    yield filesystem_1.writeToFile(htmlFileName, `<wcm-script path="${filePath}"></wcm-script>`);
-                }
             default:
                 return filesystem_1.copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
         }

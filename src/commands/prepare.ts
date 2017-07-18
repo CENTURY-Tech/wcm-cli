@@ -2,7 +2,7 @@
  * Dependencies
  */
 import * as cheerio from "cheerio";
-import * as fs from "fs";
+import * as fs from "fs-extra";
 import * as glob from "glob";
 import * as path from "path";
 import * as readline from "readline";
@@ -48,6 +48,8 @@ export async function exec(projectPath: string, optimise: boolean): Promise<any>
 
     const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
     const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
+
+    fs.removeSync(outputDirectory);
 
     if (optimise) {
       if (!bowerJson.main) {
@@ -104,12 +106,17 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
           const $ = cheerio.load(content);
 
           return Promise.all([
-            Promise.all($("link").not("[wcm-ignore]").toArray().map((link: CheerioElement) => processLinkElem($, link))),
+            Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map((link: CheerioElement) => processLinkElem($, link))),
             Promise.all($("script").not("[wcm-ignore]").toArray().map((script: CheerioElement) => processScriptElem($, script)))
               .then(compose(reject(isNil), defaultTo([])))
               .then((scripts: string[]): Promise<void> => {
                 if (scripts.length) {
-                  const jsFileName = filePath.replace(".html", ".js");
+                  let i = 0;
+                  let jsFileName = filePath.replace(".html", ".js");
+
+                  while (fs.existsSync(path.join(sourceDir, jsFileName))) {
+                    jsFileName = jsFileName.replace(".js", `_${++i}.js`);
+                  }
 
                   $.root()
                     .append($("<wcm-script></wcm-script>")
@@ -123,13 +130,6 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
               return writeToFile(path.join(outputDir, filePath), $.html());
             })
         });
-
-    case ".js":
-      const htmlFileName = path.join(outputDir, filePath.replace(".js", ".html"));
-
-      if (!fs.existsSync(htmlFileName)) {
-        await writeToFile(htmlFileName, `<wcm-script path="${filePath}"></wcm-script>`);
-      }
 
     default:
       return copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
