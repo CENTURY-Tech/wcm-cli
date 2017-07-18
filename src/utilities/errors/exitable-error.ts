@@ -1,5 +1,5 @@
-import { getDebugEnabled, getLogHandledErrors } from "../config"
-import { error } from "../logger";;
+import { getDebugEnabled, getLogHandledErrors } from "../config";
+import { error } from "../logger";
 
 export class ExitableError extends Error {
 

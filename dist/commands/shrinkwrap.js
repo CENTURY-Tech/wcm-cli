@@ -15,12 +15,12 @@ function exec(projectPath, uriPrefix) {
         const componentsPath = path.resolve(projectPath, "web_components");
         const componentsManifest = {
             uri: `${uriPrefix}/<name>/<version>/<path>`,
-            shrinkwrap: []
+            shrinkwrap: [],
         };
         for (const component of yield filesystem_1.readDir(componentsPath)) {
             componentsManifest.shrinkwrap.push({
                 name: component,
-                version: (yield filesystem_1.readDir(path.resolve(componentsPath, component)))[0]
+                version: (yield filesystem_1.readDir(path.resolve(componentsPath, component)))[0],
             });
         }
         return filesystem_1.writeJsonToFile(path.resolve(projectPath, "wcm-shrinkwrap.json"), componentsManifest);

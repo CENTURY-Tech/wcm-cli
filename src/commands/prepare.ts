@@ -1,13 +1,14 @@
 /**
  * Dependencies
  */
+import * as cheerio from "cheerio";
 import * as fs from "fs";
+import * as glob from "glob";
 import * as path from "path";
 import * as readline from "readline";
-import { Writable } from "stream";
-import * as stream from "stream";
+import { compose, defaultTo, isNil, reject } from "ramda";
 import { fileNotFound } from "../utilities/errors";
-import { copy, ensureDirectoryExists, readBowerModuleJson, readDir, readFileAsJson, writeToFile } from "../utilities/filesystem";
+import { copy, ensureDirectoryExists, readBowerModuleJson, readDir, readFile, readFileAsJson, writeToFile } from "../utilities/filesystem";
 import { warn } from "../utilities/logger";
 
 interface WCMConfig {
@@ -26,14 +27,17 @@ export async function exec(projectPath: string, optimise: boolean): Promise<any>
   const wcmConfig = await readFileAsJson<WCMConfig>(path.resolve(projectPath, "wcm.json"));
   const rootDir = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
   const outDir = path.resolve(projectPath, wcmConfig.componentOptions.outDir);
+  const processedPaths = [];
 
-  await processFile(rootDir, outDir, wcmConfig.main, []);
+  for (const entryPath of typeof wcmConfig.main === "string" ? [wcmConfig.main] : wcmConfig.main) {
+    for (const filePath of glob.sync(path.join(rootDir, entryPath))) {
+      await processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths).catch(() => console.log("oh dear"))
+    }
+  }
 
   const sourcePath = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
   const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
   const outputPath = path.resolve(projectPath, "web_components");
-
-  const processedPaths = [];
 
   for (const dependency of await readDir(dependenciesPath)) {
     const sourceDirectory = path.join(dependenciesPath, dependency);
@@ -82,11 +86,8 @@ async function processDir(sourceDir: string, outputDir: string, dirPath: string,
 
 async function processFile(sourceDir: string, outputDir: string, filePath: string, processedPaths: string[]): Promise<void> {
   if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
-    return Promise.resolve();
+    return
   } else {
-    if (!sourceDir || !filePath) {
-      console.log(sourceDir, filePath);
-    }
     processedPaths.push(path.resolve(sourceDir, filePath));
   }
 
@@ -98,110 +99,71 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
 
   switch (path.extname(filePath)) {
     case ".html":
-      return new Promise<void>((resolve): void => {
-        const input = fs.createReadStream(path.join(sourceDir, filePath));
-        const output = fs.createWriteStream(path.join(outputDir, filePath));
-        const subfiles = [];
+      return readFile(path.join(sourceDir, filePath))
+        .then((content: string): Promise<void> => {
+          const $ = cheerio.load(content);
 
-        let inScript = 0;
-        let inComment = 0;
-        let lineNumber = 0;
+          return Promise.all([
+            Promise.all($("link").toArray().map((link: CheerioElement) => processLinkElem($, link))),
+            Promise.all($("script").toArray().map((script: CheerioElement) => processScriptElem($, script)))
+              .then(compose(reject(isNil), defaultTo([])))
+              .then((scripts: string[]): Promise<void> => {
+                if (scripts.length) {
+                  const jsFileName = filePath.replace(".html", ".js");
 
-        const inlineJs = [];
+                  $.root()
+                    .append($("<wcm-script></wcm-script>")
+                      .attr("path", jsFileName));
 
-        readline.createInterface({ input })
-          .on("line", (_line: string): void => {
-            lineNumber++;
-
-            (inScript
-              ? _line
-                .replace(/<\/script>/g, "\n$&")
-              : _line
-                .replace(/-->|<script>/g, "$&\n"))
-              .split("\n")
-              .forEach((line) => {
-                if (!inScript) {
-                  /<!--/.test(line) && inComment++;
-                  /-->/.test(line) && inComment--;
+                  return writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                 }
-
-                if (!inComment) {
-                  /<script>?/.test(line) && inScript++;
-                  /<\/script>/.test(line) && inScript--;
-                }
-
-                if (!inScript && !inComment) {
-                  if (/<link .*>/.test(line)) {
-                    let href: string;
-                    let rel: string;
-
-                    try {
-                      [, href] = /href="([^"]*)"/.exec(line);
-                      [, rel] = /rel="([A-z]*)"/.exec(line);
-                    } catch (err) {
-                      warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
-                    }
-
-                    if (!/http(s)?:\/\//.test(href)) {
-                      if (isRelative(sourceDir, filePath, href)) {
-                        subfiles.push(href);
-                      } else {
-                        line = line.replace(/<link .[^>]*>/, `<wcm-link rel="${rel}" for="${getDependencyName(href)}" path="${getDependencyLookup(href)}"></wcm-link>`);
-                      }
-                    }
-                  } else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
-                    let src: string;
-
-                    try {
-                      [, src] = /src="([^"]*)"/.exec(line);
-                    } catch (err) {
-                      warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
-                    }
-
-                    if (!/http(s)?:\/\//.test(src)) {
-                      if (isRelative(sourceDir, filePath, src)) {
-                        line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script path="${src}"></wcm-script>`);
-                      } else {
-                        line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script for="${getDependencyName(src)}" path="${getDependencyLookup(src)}"></wcm-script>`);
-                      }
-                    }
-                  }
-                }
-
-                if (inScript) {
-                  !/<script>?/.test(line) && inlineJs.push(line);
-                } else {
-                  !/^<\/script>/.test(line) && output.write(`${line}\n`);
-                }
-              });
-          })
-          .on("close", async () => {
-            if (inlineJs.length) {
-              const jsOutput = fs.createWriteStream(path.join(outputDir, filePath).replace(".html", ".js"));
-
-              for (const line of inlineJs) {
-                jsOutput.write(`${line}\n`);
-              }
-
-              output.write(`<wcm-script path="${path.basename(filePath).replace(".html", ".js")}"></wcm-script>\n;`)
-            }
-
-            for (const href of subfiles) {
-              await processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
-            }
-
-            resolve();
-          });
-      });
+              })
+          ])
+            .then(() => {
+              return writeToFile(path.join(outputDir, filePath), $.html());
+            })
+        });
 
     case ".js":
-      const fileName = path.join(outputDir, filePath.replace(".js", ".html"));
-      if (!fs.existsSync(fileName)) {
-        await writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script path="${filePath}"></wcm-script>`);
+      const htmlFileName = path.join(outputDir, filePath.replace(".js", ".html"));
+
+      if (!fs.existsSync(htmlFileName)) {
+        await writeToFile(htmlFileName, `<wcm-script path="${filePath}"></wcm-script>`);
       }
 
     default:
       return copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
+  }
+
+  function processLinkElem($: CheerioStatic, link: CheerioElement): Promise<void> {
+    if (isRelative(sourceDir, filePath, link.attribs.href)) {
+      return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), link.attribs.href), processedPaths);
+    } else {
+      $(link)
+        .replaceWith($("<wcm-link></wcm-link>")
+          .attr("rel", link.attribs.rel)
+          .attr("for", getDependencyName(link.attribs.href))
+          .attr("path", getDependencyLookup(link.attribs.href))
+        );
+    }
+  }
+
+  function processScriptElem($: CheerioStatic, script: CheerioElement): string | void {
+    if (script.childNodes && script.childNodes.length) {
+      $(script).remove();
+      return script.childNodes[0]["data"]
+    } else if (!isHttp(script.attribs.src)) {
+      if (isRelative(sourceDir, filePath, script.attribs.src)) {
+        $(script)
+          .replaceWith($("<wcm-script></wcm-script>")
+            .attr("path", script.attribs.src))
+      } else {
+        $(script)
+          .replaceWith($("<wcm-script></wcm-script>")
+            .attr("for", getDependencyName(script.attribs.src))
+            .attr("path", getDependencyLookup(script.attribs.src)))
+      }
+    }
   }
 
 }
@@ -214,12 +176,19 @@ function isRelative(sourcePath: string, relPathA: string, relPathB: string): boo
   }
 }
 
+function isHttp(src): boolean {
+  return /http(s)?:\/\//.test(src)
+}
+
 function getHref(tag: string): string {
   return /(href|src)="(.*)"/.exec(tag)[2];
 }
 
 function resolvePackageManagerDirectory(packageManager: PackageManager): string {
-  return ["bower_components", "node_modules"][["bower", "npm"].indexOf(packageManager;)]
+  return {
+    bower: "bower_components",
+    npm: "node_modules",
+  }[packageManager];
 }
 
 function getDependencyName(url: string): string {

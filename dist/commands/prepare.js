@@ -8,22 +8,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Dependencies
+ */
+const cheerio = require("cheerio");
 const fs = require("fs");
-const readline = require("readline");
+const glob = require("glob");
 const path = require("path");
+const ramda_1 = require("ramda");
 const errors_1 = require("../utilities/errors");
-const logger_1 = require("../utilities/logger");
 const filesystem_1 = require("../utilities/filesystem");
+const logger_1 = require("../utilities/logger");
 function exec(projectPath, optimise) {
     return __awaiter(this, void 0, void 0, function* () {
         const wcmConfig = yield filesystem_1.readFileAsJson(path.resolve(projectPath, "wcm.json"));
         const rootDir = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
         const outDir = path.resolve(projectPath, wcmConfig.componentOptions.outDir);
-        yield processFile(rootDir, outDir, wcmConfig.main, []);
+        const processedPaths = [];
+        for (const entryPath of typeof wcmConfig.main === "string" ? [wcmConfig.main] : wcmConfig.main) {
+            for (const filePath of glob.sync(path.join(rootDir, entryPath))) {
+                yield processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths).catch(() => console.log("oh dear"));
+            }
+        }
         const sourcePath = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
         const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
         const outputPath = path.resolve(projectPath, "web_components");
-        const processedPaths = [];
         for (const dependency of yield filesystem_1.readDir(dependenciesPath)) {
             const sourceDirectory = path.join(dependenciesPath, dependency);
             if (!fs.statSync(sourceDirectory).isDirectory()) {
@@ -69,12 +78,9 @@ function processDir(sourceDir, outputDir, dirPath, processedPaths) {
 function processFile(sourceDir, outputDir, filePath, processedPaths) {
     return __awaiter(this, void 0, void 0, function* () {
         if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
-            return Promise.resolve();
+            return;
         }
         else {
-            if (!sourceDir || !filePath) {
-                console.log(sourceDir, filePath);
-            }
             processedPaths.push(path.resolve(sourceDir, filePath));
         }
         if (!fs.existsSync(path.join(sourceDir, filePath))) {
@@ -83,99 +89,65 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
         yield filesystem_1.ensureDirectoryExists(path.dirname(path.join(outputDir, filePath)));
         switch (path.extname(filePath)) {
             case ".html":
-                return new Promise((resolve) => {
-                    const input = fs.createReadStream(path.join(sourceDir, filePath));
-                    const output = fs.createWriteStream(path.join(outputDir, filePath));
-                    const subfiles = [];
-                    let inScript = 0;
-                    let inComment = 0;
-                    let lineNumber = 0;
-                    const inlineJs = [];
-                    readline.createInterface({ input })
-                        .on("line", (_line) => {
-                        lineNumber++;
-                        (inScript
-                            ? _line
-                                .replace(/<\/script>/g, "\n$&")
-                            : _line
-                                .replace(/-->|<script>/g, "$&\n"))
-                            .split("\n")
-                            .forEach((line) => {
-                            if (!inScript) {
-                                /<!--/.test(line) && inComment++;
-                                /-->/.test(line) && inComment--;
+                return filesystem_1.readFile(path.join(sourceDir, filePath))
+                    .then((content) => {
+                    const $ = cheerio.load(content);
+                    return Promise.all([
+                        Promise.all($("link").toArray().map((link) => processLinkElem($, link))),
+                        Promise.all($("script").toArray().map((script) => processScriptElem($, script)))
+                            .then(ramda_1.compose(ramda_1.reject(ramda_1.isNil), ramda_1.defaultTo([])))
+                            .then((scripts) => {
+                            if (scripts.length) {
+                                const jsFileName = filePath.replace(".html", ".js");
+                                $.root()
+                                    .append($("<wcm-script></wcm-script>")
+                                    .attr("path", jsFileName));
+                                return filesystem_1.writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                             }
-                            if (!inComment) {
-                                /<script>?/.test(line) && inScript++;
-                                /<\/script>/.test(line) && inScript--;
-                            }
-                            if (!inScript && !inComment) {
-                                if (/<link .*>/.test(line)) {
-                                    let href;
-                                    let rel;
-                                    try {
-                                        [, href] = /href="([^"]*)"/.exec(line);
-                                        [, rel] = /rel="([A-z]*)"/.exec(line);
-                                    }
-                                    catch (err) {
-                                        logger_1.warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
-                                    }
-                                    if (!/http(s)?:\/\//.test(href)) {
-                                        if (isRelative(sourceDir, filePath, href)) {
-                                            subfiles.push(href);
-                                        }
-                                        else {
-                                            line = line.replace(/<link .[^>]*>/, `<wcm-link rel="${rel}" for="${getDependencyName(href)}" path="${getDependencyLookup(href)}"></wcm-link>`);
-                                        }
-                                    }
-                                }
-                                else if (/<script.*src="[^"]*".*><\/script>/.test(line)) {
-                                    let src;
-                                    try {
-                                        [, src] = /src="([^"]*)"/.exec(line);
-                                    }
-                                    catch (err) {
-                                        logger_1.warn("Error whilst processing line %s in file %s", lineNumber, path.join(sourceDir, filePath));
-                                    }
-                                    if (!/http(s)?:\/\//.test(src)) {
-                                        if (isRelative(sourceDir, filePath, src)) {
-                                            line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script path="${src}"></wcm-script>`);
-                                        }
-                                        else {
-                                            line = line.replace(/<script.*src="[^"]*".*><\/script>/, `<wcm-script for="${getDependencyName(src)}" path="${getDependencyLookup(src)}"></wcm-script>`);
-                                        }
-                                    }
-                                }
-                            }
-                            if (inScript) {
-                                !/<script>?/.test(line) && inlineJs.push(line);
-                            }
-                            else {
-                                !/^<\/script>/.test(line) && output.write(`${line}\n`);
-                            }
-                        });
-                    })
-                        .on("close", () => __awaiter(this, void 0, void 0, function* () {
-                        if (inlineJs.length) {
-                            let jsOutput = fs.createWriteStream(path.join(outputDir, filePath).replace(".html", ".js"));
-                            for (const line of inlineJs) {
-                                jsOutput.write(`${line}\n`);
-                            }
-                            output.write(`<wcm-script path="${path.basename(filePath).replace(".html", ".js")}"></wcm-script>\n`);
-                        }
-                        for (const href of subfiles) {
-                            yield processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
-                        }
-                        resolve();
-                    }));
+                        })
+                    ])
+                        .then(() => {
+                        return filesystem_1.writeToFile(path.join(outputDir, filePath), $.html());
+                    });
                 });
             case ".js":
-                const fileName = path.join(outputDir, filePath.replace(".js", ".html"));
-                if (!fs.existsSync(fileName)) {
-                    yield filesystem_1.writeToFile(path.join(outputDir, filePath.replace(".js", ".html")), `<wcm-script path="${filePath}"></wcm-script>`);
+                const htmlFileName = path.join(outputDir, filePath.replace(".js", ".html"));
+                if (!fs.existsSync(htmlFileName)) {
+                    yield filesystem_1.writeToFile(htmlFileName, `<wcm-script path="${filePath}"></wcm-script>`);
                 }
             default:
                 return filesystem_1.copy(path.join(sourceDir, filePath), path.join(outputDir, filePath));
+        }
+        function processLinkElem($, link) {
+            if (isRelative(sourceDir, filePath, link.attribs.href)) {
+                return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), link.attribs.href), processedPaths);
+            }
+            else {
+                $(link)
+                    .replaceWith($("<wcm-link></wcm-link>")
+                    .attr("rel", link.attribs.rel)
+                    .attr("for", getDependencyName(link.attribs.href))
+                    .attr("path", getDependencyLookup(link.attribs.href)));
+            }
+        }
+        function processScriptElem($, script) {
+            if (script.childNodes && script.childNodes.length) {
+                $(script).remove();
+                return script.childNodes[0]["data"];
+            }
+            else if (!isHttp(script.attribs.src)) {
+                if (isRelative(sourceDir, filePath, script.attribs.src)) {
+                    $(script)
+                        .replaceWith($("<wcm-script></wcm-script>")
+                        .attr("path", script.attribs.src));
+                }
+                else {
+                    $(script)
+                        .replaceWith($("<wcm-script></wcm-script>")
+                        .attr("for", getDependencyName(script.attribs.src))
+                        .attr("path", getDependencyLookup(script.attribs.src)));
+                }
+            }
         }
     });
 }
@@ -187,11 +159,17 @@ function isRelative(sourcePath, relPathA, relPathB) {
         logger_1.warn("Unable to determine relitivity from '%s' between '%s' and '%s'", sourcePath, relPathA, relPathB);
     }
 }
+function isHttp(src) {
+    return /http(s)?:\/\//.test(src);
+}
 function getHref(tag) {
     return /(href|src)="(.*)"/.exec(tag)[2];
 }
 function resolvePackageManagerDirectory(packageManager) {
-    return ["bower_components", "node_modules"][["bower", "npm"].indexOf(packageManager)];
+    return {
+        bower: "bower_components",
+        npm: "node_modules",
+    }[packageManager];
 }
 function getDependencyName(url) {
     return /([^./]+)/.exec(url)[0];
