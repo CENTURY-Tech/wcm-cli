@@ -104,8 +104,8 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
           const $ = cheerio.load(content);
 
           return Promise.all([
-            Promise.all($("link").toArray().map((link: CheerioElement) => processLinkElem($, link))),
-            Promise.all($("script").toArray().map((script: CheerioElement) => processScriptElem($, script)))
+            Promise.all($("link").not("[wcm-ignore]").toArray().map((link: CheerioElement) => processLinkElem($, link))),
+            Promise.all($("script").not("[wcm-ignore]").toArray().map((script: CheerioElement) => processScriptElem($, script)))
               .then(compose(reject(isNil), defaultTo([])))
               .then((scripts: string[]): Promise<void> => {
                 if (scripts.length) {
@@ -113,7 +113,7 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
 
                   $.root()
                     .append($("<wcm-script></wcm-script>")
-                      .attr("path", jsFileName));
+                      .attr("path", path.basename(jsFileName)));
 
                   return writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                 }

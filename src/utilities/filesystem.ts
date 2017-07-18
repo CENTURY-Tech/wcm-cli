@@ -72,6 +72,10 @@ export async function writeToFile(fullPath: string, data: string): Promise<void>
   await ensureDirectoryExists(getPathParent(fullPath));
 
   return new Promise<void>((resolve): void => {
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+
     void fs.writeFile(fullPath, data, (err: Error): void => {
       if (err) {
         upstreamDependencyFailure("fs-extra", err).exit();

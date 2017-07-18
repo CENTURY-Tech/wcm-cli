@@ -93,15 +93,15 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
                     .then((content) => {
                     const $ = cheerio.load(content);
                     return Promise.all([
-                        Promise.all($("link").toArray().map((link) => processLinkElem($, link))),
-                        Promise.all($("script").toArray().map((script) => processScriptElem($, script)))
+                        Promise.all($("link").not("[wcm-ignore]").toArray().map((link) => processLinkElem($, link))),
+                        Promise.all($("script").not("[wcm-ignore]").toArray().map((script) => processScriptElem($, script)))
                             .then(ramda_1.compose(ramda_1.reject(ramda_1.isNil), ramda_1.defaultTo([])))
                             .then((scripts) => {
                             if (scripts.length) {
                                 const jsFileName = filePath.replace(".html", ".js");
                                 $.root()
                                     .append($("<wcm-script></wcm-script>")
-                                    .attr("path", jsFileName));
+                                    .attr("path", path.basename(jsFileName)));
                                 return filesystem_1.writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                             }
                         })

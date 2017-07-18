@@ -74,6 +74,9 @@ function writeToFile(fullPath, data) {
     return __awaiter(this, void 0, void 0, function* () {
         yield ensureDirectoryExists(getPathParent(fullPath));
         return new Promise((resolve) => {
+            if (fs.existsSync(fullPath)) {
+                fs.unlinkSync(fullPath);
+            }
             void fs.writeFile(fullPath, data, (err) => {
                 if (err) {
                     errors_1.upstreamDependencyFailure("fs-extra", err).exit();
