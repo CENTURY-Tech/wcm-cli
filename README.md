@@ -1,4 +1,4 @@
-# Web Component Manager CLI
+# Web Components Manager CLI
 
 The command line interface for [WCM](https://www.npmjs.com/package/@ctek/wcm)
 
