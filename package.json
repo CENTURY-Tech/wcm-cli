@@ -1,9 +1,9 @@
 {
   "name": "wcm-cli",
   "version": "0.0.0",
-  "description": "",
+  "description": "A CLI tool to install and optimise Web Components",
   "bin": {
-    "wcm": "./dist/index.js"
+    "wcm": "./dist/wcm.js"
   },
   "scripts": {
     "build": "tsc",
@@ -17,18 +17,20 @@
   "author": "Century Tech",
   "license": "MIT",
   "dependencies": {
+    "ajv": "^5.2.2",
     "chalk": "^1.1.3",
     "cheerio": "^0.22.0",
     "commander": "^2.10.0",
     "fs-extra": "^3.0.1",
     "glob": "^7.1.2",
-    "object.values": "^1.0.4",
+    "inquirer": "^3.2.0",
     "progress": "^2.0.0",
     "ramda": "^0.24.1",
     "semver": "^5.3.0",
     "table": "^4.0.1"
   },
   "devDependencies": {
+    "@types/ajv": "^1.0.0",
     "@types/chalk": "^0.4.31",
     "@types/cheerio": "^0.22.2",
     "@types/commander": "^2.9.1",
@@ -36,6 +38,7 @@
     "@types/gist-bower-json": "gist:de3bf96ae0ded86a83d41082a0a7bdab",
     "@types/gist-package-json": "gist:5c1cc527fe6b5b7dba41fec7fe54bf6e",
     "@types/glob": "^5.0.30",
+    "@types/inquirer": "0.0.35",
     "@types/progress": "^2.0.0",
     "@types/ramda": "^0.24.0",
     "@types/semver": "^5.3.30",

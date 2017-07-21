@@ -8,22 +8,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const path = require("path");
+const path_1 = require("path");
+const config_1 = require("../utilities/config");
 const filesystem_1 = require("../utilities/filesystem");
-function exec(projectPath, uriPrefix) {
+function exec() {
     return __awaiter(this, void 0, void 0, function* () {
-        const componentsPath = path.resolve(projectPath, "web_components");
         const componentsManifest = {
-            uri: `${uriPrefix}/<name>/<version>/<path>`,
+            uri: `${config_1.getShrinkwrapOptions().uriPrefix}/<name>/<version>/<path>`,
             shrinkwrap: [],
         };
-        for (const component of yield filesystem_1.readDir(componentsPath)) {
+        for (const component of yield filesystem_1.readDir("web_components")) {
             componentsManifest.shrinkwrap.push({
                 name: component,
-                version: (yield filesystem_1.readDir(path.resolve(componentsPath, component)))[0],
+                version: (yield filesystem_1.readDir(path_1.resolve("web_components", component)))[0],
             });
         }
-        return filesystem_1.writeJsonToFile(path.resolve(projectPath, "wcm-shrinkwrap.json"), componentsManifest);
+        return filesystem_1.writeJsonToFile("wcm-shrinkwrap.json", componentsManifest);
     });
 }
 exports.exec = exec;

@@ -4,7 +4,8 @@
     "outDir": "dist",
     "module": "commonjs",
     "target": "es6",
-    "noImplicitAny": false,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
     "sourceMap": false,
     "lib": [
       "dom",

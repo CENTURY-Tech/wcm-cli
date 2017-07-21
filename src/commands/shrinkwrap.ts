@@ -1,12 +1,6 @@
-/**
- * Dependencies
- */
-import * as fs from "fs";
-import * as path from "path";
-import * as readline from "readline";
-import { Writable } from "stream";
+import { resolve } from "path";
+import { getShrinkwrapOptions } from "../utilities/config";
 import { readDir, writeJsonToFile } from "../utilities/filesystem";
-import { warn } from "../utilities/logger";
 
 /**
  * A representation of the required keys expected to be present in the Manifest JSON.
@@ -26,19 +20,18 @@ export interface Dependency {
   version: string;
 }
 
-export async function exec(projectPath: string, uriPrefix: string): Promise<any> {
-  const componentsPath = path.resolve(projectPath, "web_components");
+export async function exec(): Promise<void> {
   const componentsManifest: Manifest = {
-    uri: `${uriPrefix}/<name>/<version>/<path>`,
+    uri: `${getShrinkwrapOptions().uriPrefix}/<name>/<version>/<path>`,
     shrinkwrap: [],
   };
 
-  for (const component of await readDir(componentsPath)) {
+  for (const component of await readDir("web_components")) {
     componentsManifest.shrinkwrap.push({
       name: component,
-      version: (await readDir(path.resolve(componentsPath, component)))[0],
+      version: (await readDir(resolve("web_components", component)))[0],
     });
   }
 
-  return writeJsonToFile(path.resolve(projectPath, "wcm-shrinkwrap.json"), componentsManifest);
+  return writeJsonToFile("wcm-shrinkwrap.json", componentsManifest);
 }

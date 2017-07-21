@@ -8,58 +8,52 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-/**
- * Dependencies
- */
 const cheerio = require("cheerio");
 const fs = require("fs-extra");
 const glob = require("glob");
 const path = require("path");
 const ramda_1 = require("ramda");
+const config_1 = require("../utilities/config");
 const errors_1 = require("../utilities/errors");
 const filesystem_1 = require("../utilities/filesystem");
 const logger_1 = require("../utilities/logger");
-function exec(projectPath, optimise) {
+function exec() {
     return __awaiter(this, void 0, void 0, function* () {
-        const wcmConfig = yield filesystem_1.readFileAsJson(path.resolve(projectPath, "wcm.json"));
-        const rootDir = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
-        const outDir = path.resolve(projectPath, wcmConfig.componentOptions.outDir);
+        const { main, rootDir, outDir } = config_1.getComponentOptions();
         const processedPaths = [];
-        for (const entryPath of typeof wcmConfig.main === "string" ? [wcmConfig.main] : wcmConfig.main) {
+        for (const entryPath of ensureArray(main)) {
             for (const filePath of glob.sync(path.join(rootDir, entryPath))) {
-                yield processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths).catch(() => console.log("oh dear"));
+                yield processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths);
             }
         }
-        const sourcePath = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
-        const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
-        const outputPath = path.resolve(projectPath, "web_components");
-        for (const dependency of yield filesystem_1.readDir(dependenciesPath)) {
-            const sourceDirectory = path.join(dependenciesPath, dependency);
-            if (!fs.statSync(sourceDirectory).isDirectory()) {
-                continue;
-            }
-            const bowerJson = yield filesystem_1.readBowerModuleJson(path.join(dependenciesPath, dependency));
-            const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
-            fs.removeSync(outputDirectory);
-            if (optimise) {
-                if (!bowerJson.main) {
-                    logger_1.warn("'%s' has not declared an entry file, skipping optimisation", dependency);
-                    yield processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-                    continue;
-                }
-                for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
-                    if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
-                        logger_1.warn("'%s' has an entry file '%s' that does not exist, skipping optimisation", dependency, entryPath);
-                        yield processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-                        break;
-                    }
-                    yield processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
-                }
-            }
-            else {
-                yield processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-            }
-        }
+        // const dependenciesPath = path.resolve(".", getPackageManager().packageManager);
+        // const outputPath = path.resolve(".", "web_components");
+        // for (const dependency of await readDir(dependenciesPath)) {
+        //   const sourceDirectory = path.join(dependenciesPath, dependency);
+        //   if (!fs.statSync(sourceDirectory).isDirectory()) {
+        //     continue;
+        //   }
+        //   const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
+        //   const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
+        //   fs.removeSync(outputDirectory);
+        //   if (optimise) {
+        //     if (!bowerJson.main) {
+        //       warn("'%s' has not declared an entry file, skipping optimisation", dependency);
+        //       await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+        //       continue;
+        //     }
+        //     for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
+        //       if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
+        //         warn("'%s' has an entry file '%s' that does not exist, skipping optimisation", dependency, entryPath);
+        //         await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+        //         break;
+        //       }
+        //       await processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
+        //     }
+        //   } else {
+        //     await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+        //   }
+        // }
     });
 }
 exports.exec = exec;
@@ -76,6 +70,7 @@ function processDir(sourceDir, outputDir, dirPath, processedPaths) {
         }));
     });
 }
+exports.processDir = processDir;
 function processFile(sourceDir, outputDir, filePath, processedPaths) {
     return __awaiter(this, void 0, void 0, function* () {
         if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
@@ -109,7 +104,7 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
                                     .attr("path", path.basename(jsFileName)));
                                 return filesystem_1.writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                             }
-                        })
+                        }),
                     ])
                         .then(() => {
                         return filesystem_1.writeToFile(path.join(outputDir, filePath), $.html());
@@ -133,7 +128,7 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
         function processScriptElem($, script) {
             if (script.childNodes && script.childNodes.length) {
                 $(script).remove();
-                return script.childNodes[0]["data"];
+                return script.childNodes[0].data;
             }
             else if (!isHttp(script.attribs.src)) {
                 if (isRelative(sourceDir, filePath, script.attribs.src)) {
@@ -151,6 +146,7 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
         }
     });
 }
+exports.processFile = processFile;
 function isRelative(sourcePath, relPathA, relPathB) {
     try {
         return path.resolve(path.dirname(path.join(sourcePath, relPathA)), relPathB).includes(sourcePath + path.sep);
@@ -162,15 +158,6 @@ function isRelative(sourcePath, relPathA, relPathB) {
 function isHttp(src) {
     return /http(s)?:\/\//.test(src);
 }
-function getHref(tag) {
-    return /(href|src)="(.*)"/.exec(tag)[2];
-}
-function resolvePackageManagerDirectory(packageManager) {
-    return {
-        bower: "bower_components",
-        npm: "node_modules",
-    }[packageManager];
-}
 function getDependencyName(url) {
     return /([^./]+)/.exec(url)[0];
 }
@@ -181,4 +168,9 @@ function getDependencyLookup(url) {
     catch (err) {
         logger_1.warn("Error whilst retrieving lookup from URL '%s'", url);
     }
+}
+function ensureArray(val) {
+    return typeof val === "object" && val.constructor === Array
+        ? val
+        : [val];
 }

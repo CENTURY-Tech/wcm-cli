@@ -1,7 +1,7 @@
 import * as chalk from "chalk";
 import * as ProgressBar from "progress";
 import * as tableLogger from "table";
-import { getLogLevel } from "./config";
+import { getCommandLineOptions } from "./config";
 
 export interface IThreadLogger {
   log(message: string, ...optionalParams: any[]): void;
@@ -24,28 +24,28 @@ export function log(message: string, ...optionalParams: any[]): void {
  * A basic function that will log a debug message to the console.
  */
 export function debug(message: string, ...optionalParams: any[]): void {
-  getLogLevel() <= 0 && console.log(chalk.gray(message), ...optionalParams);
+  getCommandLineOptions().logLevel <= 0 && console.log(chalk.gray(message), ...optionalParams);
 }
 
 /**
  * A basic function that will log an information message to the console.
  */
 export function info(message: string, ...optionalParams: any[]): void {
-  getLogLevel() <= 1 && console.log(chalk.cyan(message), ...optionalParams);
+  getCommandLineOptions().logLevel <= 1 && console.log(chalk.cyan(message), ...optionalParams);
 }
 
 /**
  * A basic function that will log a warning message to the console.
  */
 export function warn(message: string, ...optionalParams: any[]): void {
-  getLogLevel() <= 2 && console.log(chalk.yellow(message), ...optionalParams);
+  getCommandLineOptions().logLevel <= 2 && console.log(chalk.yellow(message), ...optionalParams);
 }
 
 /**
  * A basic function that will log an error message to the console.
  */
 export function error(message: string, ...optionalParams: any[]): void {
-  getLogLevel() <= 3 && console.log(chalk.red(`\n${message}\n`), ...optionalParams);
+  console.log(chalk.red(`\n${message}\n`), ...optionalParams);
 }
 
 export function thread(openningMessage: string, ...optionalParams: any[]): IThreadLogger {
@@ -144,7 +144,7 @@ export namespace table {
   /**
    * A basic reverse curried method for printing a formatted table.
    */
-  export function print(data): void {
+  export function print(data: any[]): void {
     "use strict";
 
     const stdout: string = tableLogger.table(data, {

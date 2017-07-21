@@ -23,28 +23,28 @@ exports.log = log;
  * A basic function that will log a debug message to the console.
  */
 function debug(message, ...optionalParams) {
-    config_1.getLogLevel() <= 0 && console.log(chalk.gray(message), ...optionalParams);
+    config_1.getCommandLineOptions().logLevel <= 0 && console.log(chalk.gray(message), ...optionalParams);
 }
 exports.debug = debug;
 /**
  * A basic function that will log an information message to the console.
  */
 function info(message, ...optionalParams) {
-    config_1.getLogLevel() <= 1 && console.log(chalk.cyan(message), ...optionalParams);
+    config_1.getCommandLineOptions().logLevel <= 1 && console.log(chalk.cyan(message), ...optionalParams);
 }
 exports.info = info;
 /**
  * A basic function that will log a warning message to the console.
  */
 function warn(message, ...optionalParams) {
-    config_1.getLogLevel() <= 2 && console.log(chalk.yellow(message), ...optionalParams);
+    config_1.getCommandLineOptions().logLevel <= 2 && console.log(chalk.yellow(message), ...optionalParams);
 }
 exports.warn = warn;
 /**
  * A basic function that will log an error message to the console.
  */
 function error(message, ...optionalParams) {
-    config_1.getLogLevel() <= 3 && console.log(chalk.red(`\n${message}\n`), ...optionalParams);
+    console.log(chalk.red(`\n${message}\n`), ...optionalParams);
 }
 exports.error = error;
 function thread(openningMessage, ...optionalParams) {

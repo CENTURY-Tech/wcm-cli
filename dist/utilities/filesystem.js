@@ -87,6 +87,10 @@ function writeToFile(fullPath, data) {
     });
 }
 exports.writeToFile = writeToFile;
+function writeJSONToFile(filePath, json) {
+    return writeToFile(filePath, JSON.stringify(json, null, 2));
+}
+exports.writeJSONToFile = writeJSONToFile;
 /**
  * Write the supplied JSON to a new file at the path provided.
  */
@@ -122,12 +126,54 @@ function ensureDirectoryExists(dirPath) {
                 if (err) {
                     errors_1.upstreamDependencyFailure("fs-extra", err).exit();
                 }
-                void resolve();
+                resolve();
             });
         });
     });
 }
 exports.ensureDirectoryExists = ensureDirectoryExists;
+function fileExists(filePath) {
+    return new Promise((resolve) => {
+        fs.access(filePath, fs.constants.R_OK, (err) => {
+            resolve(!err);
+        });
+    });
+}
+exports.fileExists = fileExists;
+function removeDirectory(directoryPath) {
+    return new Promise((resolve) => {
+        fs.remove(directoryPath, (err) => {
+            if (err) {
+                errors_1.upstreamDependencyFailure("fs", err).exit();
+            }
+            resolve();
+        });
+    });
+}
+exports.removeDirectory = removeDirectory;
+function isDirectory(directoryPath) {
+    return new Promise((resolve) => {
+        fs.stat(directoryPath, (err, stats) => {
+            if (err) {
+                errors_1.upstreamDependencyFailure("fs", err).exit();
+            }
+            void resolve(stats.isDirectory());
+        });
+    });
+}
+exports.isDirectory = isDirectory;
+function readWCMJSON(projectPath) {
+    return readFileAsJson(path.resolve(projectPath, "wcm.json"));
+}
+exports.readWCMJSON = readWCMJSON;
+function readPackageJSON(projectPath) {
+    return readFileAsJson(path.resolve(projectPath, "package.json"));
+}
+exports.readPackageJSON = readPackageJSON;
+function readPackageJSONSync(projectPath) {
+    return readFileAsJsonSync(path.resolve(projectPath, "package.json"));
+}
+exports.readPackageJSONSync = readPackageJSONSync;
 /**
  * Copy the directory from the path supplied to the destination path supplied and throw an error if an issue is
  * encountered.

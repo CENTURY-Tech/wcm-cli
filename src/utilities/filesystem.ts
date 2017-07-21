@@ -1,7 +1,9 @@
 import * as fs from "fs-extra";
 import * as bowerJSON from "gist-bower-json";
+import * as packageJSON from "gist-package-json";
 import * as path from "path";
 import { compose, init, join, split } from "ramda";
+import { Config } from "./config";
 import { directoryNotFound, fileNotFound, upstreamDependencyFailure } from "./errors";
 
 /**
@@ -86,6 +88,10 @@ export async function writeToFile(fullPath: string, data: string): Promise<void>
   });
 }
 
+export function writeJSONToFile(filePath: string, json: object): Promise<void> {
+  return writeToFile(filePath, JSON.stringify(json, null, 2));
+}
+
 /**
  * Write the supplied JSON to a new file at the path provided.
  */
@@ -121,9 +127,53 @@ export async function ensureDirectoryExists(dirPath: string): Promise<void> {
         upstreamDependencyFailure("fs-extra", err).exit();
       }
 
-      void resolve();
+      resolve();
     });
   });
+}
+
+export function fileExists(filePath: string): Promise<boolean> {
+  return new Promise((resolve): void => {
+    fs.access(filePath, fs.constants.R_OK, (err: Error) => {
+      resolve(!err);
+    });
+  });
+}
+
+export function removeDirectory(directoryPath: string): Promise<void> {
+  return new Promise((resolve): void => {
+    fs.remove(directoryPath, (err: Error) => {
+      if (err) {
+        upstreamDependencyFailure("fs", err).exit();
+      }
+
+      resolve();
+    });
+  });
+}
+
+export function isDirectory(directoryPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    fs.stat(directoryPath, (err: Error, stats: fs.Stats) => {
+      if (err) {
+        upstreamDependencyFailure("fs", err).exit();
+      }
+
+      void resolve(stats.isDirectory());
+    });
+  });
+}
+
+export function readWCMJSON(projectPath: string): Promise<Config> {
+  return readFileAsJson(path.resolve(projectPath, "wcm.json"));
+}
+
+export function readPackageJSON(projectPath: string): Promise<packageJSON.IPackageJSON> {
+  return readFileAsJson(path.resolve(projectPath, "package.json"));
+}
+
+export function readPackageJSONSync(projectPath: string): packageJSON.IPackageJSON {
+  return readFileAsJsonSync(path.resolve(projectPath, "package.json"));
 }
 
 /**

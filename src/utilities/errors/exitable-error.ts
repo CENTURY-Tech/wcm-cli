@@ -1,4 +1,4 @@
-import { getDebugEnabled, getLogHandledErrors } from "../config";
+import { getCommandLineOptions } from "../config";
 import { error } from "../logger";
 
 export class ExitableError extends Error {
@@ -7,7 +7,9 @@ export class ExitableError extends Error {
    * Exit with this error
    */
   public exit(): never {
-    if (getDebugEnabled()) {
+    if (!getCommandLineOptions()) {
+      error("Fatal: %s", this.message);
+    } else if (getCommandLineOptions().debugEnabled) {
       error("Fatal: %s\n\n%s", this.message, this.stack);
     } else {
       error("Fatal: %s", this.message);
@@ -17,9 +19,11 @@ export class ExitableError extends Error {
   }
 
   public handled(): void {
-    if (getLogHandledErrors()) {
-      if (getDebugEnabled()) {
-        error("Handled: %s\n\n%s", this.message, getDebugEnabled() && this.stack);
+    if (!getCommandLineOptions()) {
+      error("Handled: %s", this.message);
+    } else if (getCommandLineOptions().logHandledErrors) {
+      if (getCommandLineOptions().debugEnabled) {
+        error("Handled: %s\n\n%s", this.message, getCommandLineOptions().debugEnabled && this.stack);
       } else {
         error("Handled: %s", this.message);
       }

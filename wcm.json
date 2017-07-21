@@ -1,0 +1,16 @@
+{
+  "componentOptions": {
+    "main": "asd",
+    "rootDir": "dfg",
+    "outDir": "sdf"
+  },
+  "commandLineOptions": {
+    "debugEnabled": false,
+    "logLevel": "warn",
+    "logHandledErrors": false
+  },
+  "dependencyManagement": {
+    "packageManager": "bower",
+    "optimise": false
+  }
+}

@@ -1,80 +1,63 @@
-/**
- * Dependencies
- */
 import * as cheerio from "cheerio";
 import * as fs from "fs-extra";
 import * as glob from "glob";
 import * as path from "path";
-import * as readline from "readline";
 import { compose, defaultTo, isNil, reject } from "ramda";
+import { getComponentOptions } from "../utilities/config";
 import { fileNotFound } from "../utilities/errors";
-import { copy, ensureDirectoryExists, readBowerModuleJson, readDir, readFile, readFileAsJson, writeToFile } from "../utilities/filesystem";
+import { copy, ensureDirectoryExists, readFile, writeToFile } from "../utilities/filesystem";
 import { warn } from "../utilities/logger";
 
-interface WCMConfig {
-  main: string;
-  version: string;
-  componentOptions: {
-    rootDir: string;
-    outDir: string;
-  };
-  packageManager: PackageManager;
-}
+export async function exec(): Promise<any> {
+  const { main, rootDir, outDir } = getComponentOptions();
 
-type PackageManager = "bower" | "npm";
+  const processedPaths: string[] = [];
 
-export async function exec(projectPath: string, optimise: boolean): Promise<any> {
-  const wcmConfig = await readFileAsJson<WCMConfig>(path.resolve(projectPath, "wcm.json"));
-  const rootDir = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
-  const outDir = path.resolve(projectPath, wcmConfig.componentOptions.outDir);
-  const processedPaths = [];
-
-  for (const entryPath of typeof wcmConfig.main === "string" ? [wcmConfig.main] : wcmConfig.main) {
+  for (const entryPath of ensureArray(main)) {
     for (const filePath of glob.sync(path.join(rootDir, entryPath))) {
-      await processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths).catch(() => console.log("oh dear"))
+      await processFile(rootDir, outDir, path.relative(rootDir, filePath), processedPaths);
     }
   }
 
-  const sourcePath = path.resolve(projectPath, wcmConfig.componentOptions.rootDir);
-  const dependenciesPath = path.resolve(projectPath, resolvePackageManagerDirectory(wcmConfig.packageManager));
-  const outputPath = path.resolve(projectPath, "web_components");
+  // const dependenciesPath = path.resolve(".", getPackageManager().packageManager);
+  // const outputPath = path.resolve(".", "web_components");
 
-  for (const dependency of await readDir(dependenciesPath)) {
-    const sourceDirectory = path.join(dependenciesPath, dependency);
+  // for (const dependency of await readDir(dependenciesPath)) {
+  //   const sourceDirectory = path.join(dependenciesPath, dependency);
 
-    if (!fs.statSync(sourceDirectory).isDirectory()) {
-      continue;
-    }
+  //   if (!fs.statSync(sourceDirectory).isDirectory()) {
+  //     continue;
+  //   }
 
-    const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
-    const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
+  //   const bowerJson = await readBowerModuleJson(path.join(dependenciesPath, dependency));
+  //   const outputDirectory = path.join(outputPath, dependency, bowerJson._release);
 
-    fs.removeSync(outputDirectory);
+  //   fs.removeSync(outputDirectory);
 
-    if (optimise) {
-      if (!bowerJson.main) {
-        warn("'%s' has not declared an entry file, skipping optimisation", dependency);
-        await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-        continue;
-      }
+  //   if (optimise) {
+  //     if (!bowerJson.main) {
+  //       warn("'%s' has not declared an entry file, skipping optimisation", dependency);
+  //       await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+  //       continue;
+  //     }
 
-      for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
-        if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
-          warn("'%s' has an entry file '%s' that does not exist, skipping optimisation", dependency, entryPath);
+  //     for (const entryPath of typeof bowerJson.main === "string" ? [bowerJson.main] : bowerJson.main) {
+  //       if (!fs.existsSync(path.join(sourceDirectory, entryPath))) {
+  //         warn("'%s' has an entry file '%s' that does not exist, skipping optimisation", dependency, entryPath);
 
-          await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-          break;
-        }
+  //         await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+  //         break;
+  //       }
 
-        await processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
-      }
-    } else {
-      await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
-    }
-  }
+  //       await processFile(path.resolve(sourceDirectory), path.resolve(outputDirectory), entryPath, processedPaths);
+  //     }
+  //   } else {
+  //     await processDir(path.resolve(sourceDirectory), path.resolve(outputDirectory), "", processedPaths);
+  //   }
+  // }
 }
 
-async function processDir(sourceDir: string, outputDir: string, dirPath: string, processedPaths: string[]): Promise<void> {
+export async function processDir(sourceDir: string, outputDir: string, dirPath: string, processedPaths: string[]): Promise<void> {
   const files = fs.readdirSync(path.join(sourceDir, dirPath));
 
   files.forEach(async (file) => {
@@ -86,9 +69,9 @@ async function processDir(sourceDir: string, outputDir: string, dirPath: string,
   });
 }
 
-async function processFile(sourceDir: string, outputDir: string, filePath: string, processedPaths: string[]): Promise<void> {
+export async function processFile(sourceDir: string, outputDir: string, filePath: string, processedPaths: string[]): Promise<void> {
   if (processedPaths.includes(path.resolve(sourceDir, filePath))) {
-    return
+    return;
   } else {
     processedPaths.push(path.resolve(sourceDir, filePath));
   }
@@ -124,11 +107,11 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
 
                   return writeToFile(path.join(outputDir, jsFileName), scripts.join(""));
                 }
-              })
+              }),
           ])
             .then(() => {
               return writeToFile(path.join(outputDir, filePath), $.html());
-            })
+            });
         });
 
     default:
@@ -143,7 +126,7 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
         .replaceWith($("<wcm-link></wcm-link>")
           .attr("rel", link.attribs.rel)
           .attr("for", getDependencyName(link.attribs.href))
-          .attr("path", getDependencyLookup(link.attribs.href))
+          .attr("path", getDependencyLookup(link.attribs.href)),
         );
     }
   }
@@ -151,17 +134,17 @@ async function processFile(sourceDir: string, outputDir: string, filePath: strin
   function processScriptElem($: CheerioStatic, script: CheerioElement): string | void {
     if (script.childNodes && script.childNodes.length) {
       $(script).remove();
-      return script.childNodes[0]["data"]
+      return (script.childNodes[0] as any).data;
     } else if (!isHttp(script.attribs.src)) {
       if (isRelative(sourceDir, filePath, script.attribs.src)) {
         $(script)
           .replaceWith($("<wcm-script></wcm-script>")
-            .attr("path", script.attribs.src))
+            .attr("path", script.attribs.src));
       } else {
         $(script)
           .replaceWith($("<wcm-script></wcm-script>")
             .attr("for", getDependencyName(script.attribs.src))
-            .attr("path", getDependencyLookup(script.attribs.src)))
+            .attr("path", getDependencyLookup(script.attribs.src)));
       }
     }
   }
@@ -176,19 +159,8 @@ function isRelative(sourcePath: string, relPathA: string, relPathB: string): boo
   }
 }
 
-function isHttp(src): boolean {
-  return /http(s)?:\/\//.test(src)
-}
-
-function getHref(tag: string): string {
-  return /(href|src)="(.*)"/.exec(tag)[2];
-}
-
-function resolvePackageManagerDirectory(packageManager: PackageManager): string {
-  return {
-    bower: "bower_components",
-    npm: "node_modules",
-  }[packageManager];
+function isHttp(src: string): boolean {
+  return /http(s)?:\/\//.test(src);
 }
 
 function getDependencyName(url: string): string {
@@ -201,4 +173,10 @@ function getDependencyLookup(url: string): string {
   } catch (err) {
     warn("Error whilst retrieving lookup from URL '%s'", url);
   }
+}
+
+function ensureArray<T>(val: T[] | T): T[] {
+  return typeof val === "object" && val.constructor === Array
+    ? val as T[]
+    : [val as T];
 }
