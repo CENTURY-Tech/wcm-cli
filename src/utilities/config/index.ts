@@ -25,7 +25,7 @@ export interface CommandLineOptions {
 }
 
 export interface DependencyManagement {
-  packageManager: PackageManager;
+  packageManager: keyof typeof PackageManager;
   optimise?: boolean;
 }
 
