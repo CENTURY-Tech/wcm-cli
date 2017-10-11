@@ -16,13 +16,13 @@ const prepare_1 = require("./prepare");
 function exec() {
     return __awaiter(this, void 0, void 0, function* () {
         const { packageManager, optimise } = config_1.getDependencyManagement();
-        for (const dependencyName of yield filesystem_1.readDir(packageManager)) {
-            const dependencyPath = path_1.resolve(packageManager, dependencyName);
+        for (const dependencyName of yield filesystem_1.readDir(config_1.PackageManager[packageManager])) {
+            const dependencyPath = path_1.resolve(config_1.PackageManager[packageManager], dependencyName);
             if (yield filesystem_1.isDirectory(dependencyPath)) {
-                switch (packageManager) {
+                switch (config_1.PackageManager[packageManager]) {
                     case config_1.PackageManager.bower:
                         const { main, _release } = yield filesystem_1.readBowerModuleJson(dependencyPath);
-                        const sourcePath = path_1.resolve(packageManager, dependencyName);
+                        const sourcePath = path_1.resolve(config_1.PackageManager[packageManager], dependencyName);
                         const outputPath = path_1.resolve("web_components", dependencyName, _release);
                         if (optimise) {
                             yield prepareOptimisedAssets(ensureArray(main), sourcePath, outputPath);

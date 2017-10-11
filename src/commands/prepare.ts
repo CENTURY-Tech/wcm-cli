@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import * as fs from "fs-extra";
 import * as glob from "glob";
 import * as path from "path";
-import { compose, defaultTo, isNil, reject } from "ramda";
+import { compose, curry, defaultTo, isNil, reject } from "ramda";
 import { getComponentOptions } from "../utilities/config";
 import { fileNotFound } from "../utilities/errors";
 import { copy, ensureDirectoryExists, readFile, writeToFile } from "../utilities/filesystem";
@@ -84,18 +84,19 @@ export async function processFile(sourceDir: string, outputDir: string, filePath
 
   switch (path.extname(filePath)) {
     case ".html":
+    case ".tpl":
       return readFile(path.join(sourceDir, filePath))
         .then((content: string): Promise<void> => {
           const $ = cheerio.load(content);
 
           return Promise.all([
-            Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map((link: CheerioElement) => processLinkElem($, link))),
-            Promise.all($("script").not("[wcm-ignore]").toArray().map((script: CheerioElement) => processScriptElem($, script)))
+            Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map(curry(processLinkElem)($))),
+            Promise.all($("script").not("[wcm-ignore]").toArray().map(curry(processScriptElem)($)))
               .then(compose(reject(isNil), defaultTo([])))
               .then((scripts: string[]): Promise<void> => {
                 if (scripts.length) {
                   let i = 0;
-                  let jsFileName = filePath.replace(".html", ".js");
+                  let jsFileName = filePath.replace(/(.html|.tpl)$/, ".js");
 
                   while (fs.existsSync(path.join(sourceDir, jsFileName))) {
                     jsFileName = jsFileName.replace(".js", `_${++i}.js`);

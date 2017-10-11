@@ -8,14 +8,14 @@ export async function exec(): Promise<void> {
   const { packageManager, optimise } = getDependencyManagement();
 
   for (const dependencyName of await readDir(PackageManager[packageManager])) {
-    const dependencyPath = resolve(packageManager, dependencyName);
+    const dependencyPath = resolve(PackageManager[packageManager], dependencyName);
 
     if (await isDirectory(dependencyPath)) {
       switch (PackageManager[packageManager]) {
         case PackageManager.bower:
           const { main, _release } = await readBowerModuleJson(dependencyPath);
 
-          const sourcePath = resolve(packageManager, dependencyName);
+          const sourcePath = resolve(PackageManager[packageManager], dependencyName);
           const outputPath = resolve("web_components", dependencyName, _release);
 
           if (optimise) {

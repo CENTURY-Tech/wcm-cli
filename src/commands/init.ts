@@ -151,12 +151,17 @@ function initialiseComponent(): Promise<void> {
       }
 
       writeJSONToFile("wcm.json", {
-        main,
+        shrinkwrapOptions: {
+          uriPrefix: "./web_components"
+        },
         componentOptions: {
+          main,
           rootDir,
           outDir,
         },
-        packageManager,
+        dependencyManagement: {
+          packageManager
+        }
       });
     });
 }

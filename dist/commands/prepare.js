@@ -85,17 +85,18 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
         yield filesystem_1.ensureDirectoryExists(path.dirname(path.join(outputDir, filePath)));
         switch (path.extname(filePath)) {
             case ".html":
+            case ".tpl":
                 return filesystem_1.readFile(path.join(sourceDir, filePath))
                     .then((content) => {
                     const $ = cheerio.load(content);
                     return Promise.all([
-                        Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map((link) => processLinkElem($, link))),
-                        Promise.all($("script").not("[wcm-ignore]").toArray().map((script) => processScriptElem($, script)))
+                        Promise.all($("link[rel='import']").not("[wcm-ignore]").toArray().map(ramda_1.curry(processLinkElem)($))),
+                        Promise.all($("script").not("[wcm-ignore]").toArray().map(ramda_1.curry(processScriptElem)($)))
                             .then(ramda_1.compose(ramda_1.reject(ramda_1.isNil), ramda_1.defaultTo([])))
                             .then((scripts) => {
                             if (scripts.length) {
                                 let i = 0;
-                                let jsFileName = filePath.replace(".html", ".js");
+                                let jsFileName = filePath.replace(/(.html|.tpl)$/, ".js");
                                 while (fs.existsSync(path.join(sourceDir, jsFileName))) {
                                     jsFileName = jsFileName.replace(".js", `_${++i}.js`);
                                 }

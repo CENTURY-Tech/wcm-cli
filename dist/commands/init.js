@@ -158,12 +158,17 @@ function initialiseComponent() {
             main = main.split(",").map((x) => x.trim());
         }
         filesystem_1.writeJSONToFile("wcm.json", {
-            main,
+            shrinkwrapOptions: {
+                uriPrefix: "./web_components"
+            },
             componentOptions: {
+                main,
                 rootDir,
                 outDir,
             },
-            packageManager,
+            dependencyManagement: {
+                packageManager
+            }
         });
     });
 }
