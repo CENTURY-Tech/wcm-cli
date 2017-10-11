@@ -119,32 +119,36 @@ export async function processFile(sourceDir: string, outputDir: string, filePath
   }
 
   function processLinkElem($: CheerioStatic, link: CheerioElement): Promise<void> {
-    if (isRelative(sourceDir, filePath, link.attribs.href)) {
-      return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), link.attribs.href), processedPaths);
+    const { href, rel } = link.attribs as any;
+
+    if (isRelative(sourceDir, filePath, href)) {
+      return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
     } else {
       $(link)
         .replaceWith($("<wcm-link></wcm-link>")
-          .attr("rel", link.attribs.rel)
-          .attr("for", getDependencyName(link.attribs.href))
-          .attr("path", getDependencyLookup(link.attribs.href)),
-        );
+          .attr("rel", rel)
+          .attr("for", getDependencyName(href))
+          .attr("path", getDependencyLookup(href)),
+      );
     }
   }
 
   function processScriptElem($: CheerioStatic, script: CheerioElement): string | void {
+    const { src } = script.attribs as any;
+
     if (script.childNodes && script.childNodes.length) {
       $(script).remove();
       return (script.childNodes[0] as any).data;
-    } else if (!isHttp(script.attribs.src)) {
-      if (isRelative(sourceDir, filePath, script.attribs.src)) {
+    } else if (!isHttp(src)) {
+      if (isRelative(sourceDir, filePath, src)) {
         $(script)
           .replaceWith($("<wcm-script></wcm-script>")
-            .attr("path", script.attribs.src));
+            .attr("path", src));
       } else {
         $(script)
           .replaceWith($("<wcm-script></wcm-script>")
-            .attr("for", getDependencyName(script.attribs.src))
-            .attr("path", getDependencyLookup(script.attribs.src)));
+            .attr("for", getDependencyName(src))
+            .attr("path", getDependencyLookup(src)));
       }
     }
   }

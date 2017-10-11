@@ -58,7 +58,7 @@ const validate = new Ajv().compile({
                         "warn",
                     ],
                     type: "string",
-                    default: "warn"
+                    default: "warn",
                 },
                 logHandledErrors: {
                     type: "boolean",
