@@ -67,12 +67,17 @@ export function exec(): Promise<any> {
             }
 
             writeJSONToFile("wcm.json", {
-              main,
+              shrinkwrapOptions: {
+                uriPrefix: "./web_components"
+              },
               componentOptions: {
+                main,
                 rootDir,
                 outDir,
               },
-              packageManager,
+              dependencyManagement: {
+                packageManager
+              }
             });
           });
       }
