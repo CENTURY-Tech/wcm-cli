@@ -1,6 +1,6 @@
 {
   "name": "@ctek/wcm-cli",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "A CLI tool to install and optimise Web Components",
   "bin": {
     "wcm": "./dist/wcm.js"
