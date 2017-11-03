@@ -123,6 +123,12 @@ export async function processFile(sourceDir: string, outputDir: string, filePath
     const { href, rel } = link.attribs as any;
 
     if (isRelative(sourceDir, filePath, href)) {
+      $(link)
+        .replaceWith($("<wcm-link></wcm-link>")
+          .attr("rel", rel)
+          .attr("path", href),
+      );
+
       return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
     } else {
       $(link)

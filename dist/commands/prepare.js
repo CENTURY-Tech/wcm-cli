@@ -117,6 +117,10 @@ function processFile(sourceDir, outputDir, filePath, processedPaths) {
         function processLinkElem($, link) {
             const { href, rel } = link.attribs;
             if (isRelative(sourceDir, filePath, href)) {
+                $(link)
+                    .replaceWith($("<wcm-link></wcm-link>")
+                    .attr("rel", rel)
+                    .attr("path", href));
                 return processFile(sourceDir, outputDir, path.join(path.dirname(filePath), href), processedPaths);
             }
             else {
